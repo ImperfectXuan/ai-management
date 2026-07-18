@@ -1,0 +1,455 @@
+#!/bin/sh
+# aiws - AI Workspace CLI
+# Unified command-line interface for managing rules, MCP, skills, and secrets
+#
+# Usage: aiws <command> [options]
+#
+# Commands:
+#   setup       Initialize workspace and vault
+#   sync        Sync all configurations to AI tools
+#   validate    Validate workspace structure and configs
+#   mcp         Manage MCP server configurations
+#   skills      Manage skills and link them to tools
+#   secrets     Manage encrypted secrets
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "${SCRIPT_DIR}/lib/common.sh"
+
+# ============================================================================
+# Help
+# ============================================================================
+
+show_help() {
+  printf '%b\n' "\
+${BOLD}AI Workspace CLI v${AIWS_VERSION}${NC}
+
+${BOLD}USAGE:${NC}
+    aiws <command> [options]
+
+${BOLD}COMMANDS:${NC}
+    ${GREEN}setup${NC}       Initialize workspace structure and secrets vault
+    ${GREEN}sync${NC}        Sync rules, MCP, and skills to all AI tools
+    ${GREEN}validate${NC}    Validate workspace structure and configurations
+
+    ${GREEN}mcp${NC}         Manage MCP server configurations
+        list               List configured MCP servers
+        add <name>         Add a new MCP server
+        remove <name>      Remove an MCP server
+        show <name>        Show MCP server details
+
+    ${GREEN}skills${NC}      Manage skills
+        list               List all skills and sync status
+        link [scope]       Link skills to tools (scope: global|project)
+        unlink [scope]     Unlink skills from tools
+        install <source>   Install skill from GitHub/npm/path
+
+    ${GREEN}secrets${NC}     Manage encrypted secrets (requires vault setup)
+        set <key>          Set a secret value
+        list               List secret keys (no values shown)
+        remove <key>       Remove a secret
+        audit              Show which tools use which secrets
+
+${BOLD}OPTIONS:${NC}
+    --tool <name>    Target specific tool (codex|claude|cursor|trae)
+    --scope <scope>  Target specific scope (global|project)
+    --debug          Enable debug output
+    --help, -h       Show this help message
+
+${BOLD}EXAMPLES:${NC}
+    aiws setup                    # Initialize workspace
+    aiws sync                     # Sync everything
+    aiws sync --tool codex        # Sync only for Codex
+    aiws mcp add github npx       # Add GitHub MCP server
+    aiws skills link global       # Link skills globally
+    aiws secrets set GITHUB_TOKEN # Set encrypted secret
+
+${BOLD}ENVIRONMENT:${NC}
+    AIWS_ROOT      Workspace root directory (default: git root)
+    AIWS_DEBUG     Enable debug output (set to 1)
+"
+}
+
+# ============================================================================
+# Setup Command
+# ============================================================================
+
+cmd_setup() {
+  local reset_2fa=0
+  
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --reset-2fa) reset_2fa=1; shift ;;
+      *) shift ;;
+    esac
+  done
+  
+  log_info "Setting up AI Workspace..."
+  echo ""
+  
+  # Create directory structure
+  ensure_workspace_structure
+  log_success "Directory structure created"
+  
+  # Create default config if not exists
+  if [ ! -f "${AIWS_DIR}/config/workspace.json" ]; then
+    cat > "${AIWS_DIR}/config/workspace.json" << 'EOF'
+{
+  "version": "1.0",
+  "tools": ["codex", "claude", "cursor", "trae"],
+  "default_scope": "project"
+}
+EOF
+    log_success "Created default config"
+  fi
+  
+  # Create default MCP config if not exists
+  if [ ! -f "${AIWS_DIR}/mcp/mcp.json" ]; then
+    cat > "${AIWS_DIR}/mcp/mcp.json" << 'EOF'
+{
+  "servers": {}
+}
+EOF
+    log_success "Created default MCP config"
+  fi
+  
+  # Create default permissions if not exists
+  if [ ! -f "${AIWS_DIR}/secrets/permissions.yaml" ]; then
+    . "${SCRIPT_DIR}/lib/vault.sh"
+    create_default_permissions
+  fi
+  
+  echo ""
+  log_info "Workspace setup complete!"
+  echo ""
+  log_info "Next steps:"
+  printf "  1. Add rules to ${CYAN}%s/rules/00-core.md${NC}\n" "$AIWS_DIR"
+  printf "  2. Configure MCP in ${CYAN}%s/mcp/mcp.json${NC}\n" "$AIWS_DIR"
+  printf "  3. Add skills to ${CYAN}%s/skills/<name>/SKILL.md${NC}\n" "$AIWS_DIR"
+  printf "  4. Run ${CYAN}aiws sync${NC} to sync to all tools\n"
+  echo ""
+  
+  # Optional: Initialize vault
+  printf "Initialize secrets vault? [y/N] "
+  read -r init_vault
+  
+  case "$init_vault" in
+    [yY]|[yY][eE][sS])
+      . "${SCRIPT_DIR}/lib/vault.sh"
+      vault_init
+      ;;
+    *)
+      log_info "You can initialize the vault later with: aiws setup"
+      ;;
+  esac
+}
+
+# ============================================================================
+# Sync Command
+# ============================================================================
+
+cmd_sync() {
+  local target_tool=""
+  local target_scope=""
+  
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --tool)  target_tool="$2"; shift 2 ;;
+      --scope) target_scope="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+  
+  log_info "AI Workspace sync v${AIWS_VERSION}"
+  echo ""
+  
+  # Sync rules
+  log_info "Syncing rules..."
+  sync_rules "$target_tool"
+  
+  # Sync MCP
+  if [ -f "${AIWS_DIR}/mcp/mcp.json" ]; then
+    echo ""
+    # Load vault.sh for secret replacement and permission checks
+    if [ -f "${SCRIPT_DIR}/lib/vault.sh" ]; then
+      . "${SCRIPT_DIR}/lib/vault.sh"
+    fi
+    . "${SCRIPT_DIR}/lib/mcp-sync.sh"
+    sync_mcp "$target_scope" "$target_tool"
+  fi
+  
+  # Sync skills
+  if [ -d "${AIWS_DIR}/skills" ]; then
+    echo ""
+    . "${SCRIPT_DIR}/lib/platform.sh"
+    . "${SCRIPT_DIR}/lib/skills-link.sh"
+    sync_skills "$target_scope" "$target_tool"
+  fi
+  
+  echo ""
+  log_success "Sync complete!"
+}
+
+# Sync rules to tool-native files
+sync_rules() {
+  local target_tool="$1"
+  
+  local tools
+  if [ -n "$target_tool" ]; then
+    tools="$target_tool"
+  else
+    tools="$(get_enabled_tools)"
+  fi
+  
+  for tool in $tools; do
+    generate_tool_file "$tool"
+  done
+}
+
+# Generate native file for a tool
+generate_tool_file() {
+  local tool="$1"
+  local rules_content=""
+  
+  # Collect rules
+  for rule_file in "${AIWS_DIR}"/rules/*.md; do
+    [ -f "$rule_file" ] || continue
+    rules_content="${rules_content}
+$(cat "$rule_file")
+"
+  done
+  
+  # Domain rules
+  if [ -d "${AIWS_DIR}/rules/domains" ]; then
+    for rule_file in "${AIWS_DIR}"/rules/domains/*.md; do
+      [ -f "$rule_file" ] || continue
+      rules_content="${rules_content}
+$(cat "$rule_file")
+"
+    done
+  fi
+  
+  local output_file=""
+  local header="<!-- Generated by AI Workspace - DO NOT EDIT MANUALLY -->"
+  
+  case "$tool" in
+    codex)
+      output_file="${AIWS_ROOT}/AGENTS.md"
+      ;;
+    claude)
+      output_file="${AIWS_ROOT}/CLAUDE.md"
+      ;;
+    cursor)
+      output_file="${AIWS_ROOT}/.cursorrules"
+      header="# Generated by AI Workspace - DO NOT EDIT MANUALLY"
+      ;;
+    trae)
+      output_file="${AIWS_ROOT}/.trae/rules.md"
+      ensure_dir "${AIWS_ROOT}/.trae"
+      header="# Generated by AI Workspace - DO NOT EDIT MANUALLY"
+      ;;
+    *)
+      log_warn "Unknown tool: $tool"
+      return
+      ;;
+  esac
+  
+  {
+    echo "$header"
+    echo ""
+    echo "$rules_content"
+  } > "$output_file"
+  
+  log_success "Generated: $output_file ($tool)"
+}
+
+# ============================================================================
+# Validate Command
+# ============================================================================
+
+cmd_validate() {
+  exec "${SCRIPT_DIR}/validate.sh" "$@"
+}
+
+# ============================================================================
+# MCP Commands
+# ============================================================================
+
+cmd_mcp() {
+  . "${SCRIPT_DIR}/lib/mcp-sync.sh"
+  
+  local subcmd="${1:-list}"
+  shift || true
+  
+  case "$subcmd" in
+    list)
+      mcp_list
+      ;;
+    add)
+      local name="$1"
+      shift || true
+      if [ -z "$name" ]; then
+        log_error "Usage: aiws mcp add <name> <command> [args...]"
+        exit 1
+      fi
+      mcp_add "$name" "$@"
+      ;;
+    remove)
+      mcp_remove "$1"
+      ;;
+    show)
+      mcp_show "$1"
+      ;;
+    *)
+      log_error "Unknown mcp subcommand: $subcmd"
+      log_info "Available: list, add, remove, show"
+      exit 1
+      ;;
+  esac
+}
+
+# ============================================================================
+# Skills Commands
+# ============================================================================
+
+cmd_skills() {
+  . "${SCRIPT_DIR}/lib/platform.sh"
+  . "${SCRIPT_DIR}/lib/skills-link.sh"
+  
+  local subcmd="${1:-list}"
+  shift || true
+  
+  case "$subcmd" in
+    list)
+      skills_list
+      ;;
+    link)
+      local scope="${1:-global}"
+      local tool="${2:-}"
+      skills_link "$scope" "$tool"
+      ;;
+    unlink)
+      local scope="${1:-global}"
+      local tool="${2:-}"
+      skills_unlink "$scope" "$tool"
+      ;;
+    install)
+      skills_install "$1"
+      ;;
+    *)
+      log_error "Unknown skills subcommand: $subcmd"
+      log_info "Available: list, link, unlink, install"
+      exit 1
+      ;;
+  esac
+}
+
+# ============================================================================
+# Secrets Commands
+# ============================================================================
+
+cmd_secrets() {
+  . "${SCRIPT_DIR}/lib/vault.sh"
+  
+  local subcmd="${1:-list}"
+  shift || true
+  
+  # audit doesn't need vault deps - it just reads permissions.yaml
+  if [ "$subcmd" != "audit" ]; then
+    if ! check_vault_deps 2>/dev/null; then
+      log_error "Vault dependencies not met"
+      log_info "Install with: brew install age oath-toolkit"
+      exit 1
+    fi
+  fi
+  
+  case "$subcmd" in
+    set)
+      vault_set "$1" "$2"
+      ;;
+    list)
+      vault_list
+      ;;
+    remove)
+      vault_remove "$1"
+      ;;
+    audit)
+      vault_audit
+      ;;
+    *)
+      log_error "Unknown secrets subcommand: $subcmd"
+      log_info "Available: set, list, remove, audit"
+      exit 1
+      ;;
+  esac
+}
+
+# ============================================================================
+# Main Entry Point
+# ============================================================================
+
+main() {
+  # Parse global options
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --debug)
+        export AIWS_DEBUG=1
+        shift
+        ;;
+      --help|-h)
+        show_help
+        exit 0
+        ;;
+      --version|-v)
+        echo "aiws v${AIWS_VERSION}"
+        exit 0
+        ;;
+      -*)
+        if [ -z "${COMMAND:-}" ]; then
+          log_error "Unknown option: $1"
+          show_help
+          exit 1
+        fi
+        break
+        ;;
+      *)
+        COMMAND="$1"
+        shift
+        break
+        ;;
+    esac
+  done
+  
+  # Dispatch command
+  case "${COMMAND:-}" in
+    setup)
+      cmd_setup "$@"
+      ;;
+    sync)
+      cmd_sync "$@"
+      ;;
+    validate)
+      cmd_validate "$@"
+      ;;
+    mcp)
+      cmd_mcp "$@"
+      ;;
+    skills)
+      cmd_skills "$@"
+      ;;
+    secrets)
+      cmd_secrets "$@"
+      ;;
+    help|"")
+      show_help
+      ;;
+    *)
+      log_error "Unknown command: $COMMAND"
+      show_help
+      exit 1
+      ;;
+  esac
+}
+
+main "$@"
