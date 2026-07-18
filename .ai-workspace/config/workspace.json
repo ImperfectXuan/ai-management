@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "tools": ["codex", "claude", "cursor", "trae"],
+  "default_scope": "project",
+  "mcp": {
+    "enabled": true,
+    "secret_prefix": "${secret:",
+    "secret_suffix": "}"
+  },
+  "skills": {
+    "enabled": true,
+    "link_type": "auto"
+  },
+  "secrets": {
+    "enabled": false,
+    "vault_file": "vault.enc",
+    "permissions_file": "permissions.yaml"
+  }
+}

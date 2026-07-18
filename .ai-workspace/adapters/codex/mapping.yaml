@@ -1,0 +1,9 @@
+tool: codex
+version: ">=0.1"
+includes_support: true
+include_syntax: "@{path}"
+rules:
+  - source: rules/00-core.md
+    required: true
+  - source: rules/01-code-conventions.md
+    required: false

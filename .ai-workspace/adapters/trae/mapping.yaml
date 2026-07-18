@@ -1,0 +1,8 @@
+tool: trae
+version: ">=2.9"
+includes_support: false
+rules:
+  - source: rules/00-core.md
+    required: true
+  - source: rules/01-code-conventions.md
+    required: false

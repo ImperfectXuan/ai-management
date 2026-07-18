@@ -1,0 +1,14 @@
+{
+  "servers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/xuanyi/Documents"],
+      "scope": ["global", "project"]
+    },
+    "browser-use": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-browseruse"],
+      "scope": ["project"]
+    }
+  }
+}
