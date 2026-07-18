@@ -1,0 +1,41 @@
+# AI Workspace
+
+# Generated files (regenerate with: aiws sync)
+AGENTS.md
+CLAUDE.md
+.cursorrules
+.trae/rules.md
+
+# Tool-specific MCP configs (synced from .ai-workspace/mcp/)
+.mcp.json
+.codex/
+.cursor/
+.trae/mcp.json
+
+# Tool-specific skills links (synced from .ai-workspace/skills/)
+.agents/
+.trae/skills/
+.cursor/skills/
+
+# Backup files
+*.bak
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# AI Workspace secrets (DO NOT commit)
+.ai-workspace/secrets/.vault-key.age
+.ai-workspace/secrets/.vault-salt
+.ai-workspace/secrets/.vault-totp
+
+# Local overrides
+.ai-workspace/mcp/mcp.local.json
