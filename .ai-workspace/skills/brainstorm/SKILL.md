@@ -1,6 +1,6 @@
 ---
 name: brainstorm
-description: Collaborative brainstorming and design exploration using structured ideation. Use before any creative work - new features, architecture decisions, project inception, or design exploration.
+description: Structured ideation and design exploration for new features, architecture decisions, or project inception. Invoke manually with /brainstorm when you want guided creative exploration.
 ---
 
 # Brainstorm
@@ -9,10 +9,12 @@ Use this skill before any creative work - new features, architecture decisions, 
 
 ## When to Use
 
+Invoke this skill manually with `/brainstorm` when you want structured creative exploration:
+
 - Starting a new feature or project
 - Making architecture decisions
 - Exploring multiple approaches to a problem
-- User says "brainstorm", "ideate", "design", "explore options"
+- User types `/brainstorm` or asks for "brainstorm" / "ideate" / "design exploration"
 
 ## Execution Steps
 
