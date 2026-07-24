@@ -2,13 +2,46 @@
   "servers": {
     "filesystem": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/xuanyi/Documents"],
-      "scope": ["global", "project"]
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/xuanyi/Documents"
+      ],
+      "scope": [
+        "global",
+        "project"
+      ]
     },
     "browser-use": {
       "command": "npx",
-      "args": ["-y", "@anthropic/mcp-server-browseruse"],
-      "scope": ["project"]
+      "args": [
+        "-y",
+        "@anthropic/mcp-server-browseruse"
+      ],
+      "scope": [
+        "project"
+      ]
+    },
+    "node_repl": {
+      "args": [],
+      "command": "/Applications/Codex.app/Contents/Resources/node_repl",
+      "startup_timeout_sec": "120",
+      "env": {
+        "NODE_REPL_NATIVE_PIPE_CONNECT_TIMEOUT_MS": "1000",
+        "NODE_REPL_NODE_MODULE_DIRS": "",
+        "NODE_REPL_NODE_PATH": "/Applications/Codex.app/Contents/Resources/node",
+        "NODE_REPL_TRUSTED_CODE_PATHS": "/Users/xuanyi/.codex",
+        "CODEX_HOME": "/Users/xuanyi/.codex",
+        "NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S": "4b6bfaf4ed2ce9b5cd68e60a61642eb4927a36306ba8c8993f6058607b3530fb",
+        "BROWSER_USE_AVAILABLE_BACKENDS": "chrome,iab",
+        "NODE_REPL_INSTRUCTIONS_USE_CASE_BROWSER": "Control the in-app browser in conjunction with the Browser Plugin.",
+        "NODE_REPL_INSTRUCTIONS_USE_CASE_CHROME": "Control the Chrome browser in conjunction with the Chrome Plugin. Prefer this method of controlling Chrome over alternatives (such as Computer Use) unless the user explicitly mentions an alternative.",
+        "BROWSER_USE_CODEX_APP_BUILD_FLAVOR": "prod",
+        "CODEX_CLI_PATH": "/Applications/Codex.app/Contents/Resources/codex"
+      },
+      "scope": [
+        "global"
+      ]
     }
   }
 }

@@ -1,128 +1,128 @@
-English | [简体中文](CONTRIBUTING.zh-CN.md)
+English | 简体中文
 
-# Contributing to AI Workspace
+# 为 AI Workspace 贡献
 
-Thank you for your interest in contributing. AI Workspace is designed to
-grow with the AI Coding tool ecosystem, and contributions from users of
-different tools are essential.
+感谢你的贡献兴趣。AI Workspace 旨在随 AI Coding 工具生态一同成长，来自不同工具用户的贡献至关重要。
 
-## Code of Conduct
+## 行为准则
 
-Be respectful. Assume good faith. Focus on the work.
+保持尊重。假定善意。专注于工作本身。
 
-## Ways to Contribute
+## 贡献方式
 
-| Contribution | Impact | Good First Issue? |
+| 贡献 | 影响 | 适合首次贡献？ |
 |---|---|---|
-| Add a new tool adapter | Expands the ecosystem | Yes |
-| Write canonical rules for a domain | Helps specific project types | Yes |
-| Improve sync/validate scripts | Core reliability | No |
-| Report a tool compatibility issue | Early detection | Yes |
-| Improve documentation | Lower barrier to entry | Yes |
+| 添加新工具适配器 | 扩展生态 | 是 |
+| 为特定领域编写规范规则 | 帮助特定项目类型 | 是 |
+| 改进同步 / 校验 / 导入脚本 | 核心可靠性 | 否 |
+| 报告工具兼容性问题 | 早期发现 | 是 |
+| 改进文档 | 降低入门门槛 | 是 |
 
-## Development Setup
+## 开发环境
 
-No build step required. AI Workspace is a file-based infrastructure layer.
+无需构建步骤。AI Workspace 是基于文件的基础设施层。
 
 ```bash
 git clone <repo-url>
 cd ai-workspace
 ```
 
-To test adapter output locally:
+测试适配器输出：
 
 ```bash
-.ai-workspace/scripts/sync.sh
-.ai-workspace/scripts/validate.sh
+.ai-workspace/scripts/aiws sync
+.ai-workspace/scripts/aiws validate
 ```
 
-## Adding a New Tool Adapter
+## 添加新工具适配器
 
-1. Create a directory: `.ai-workspace/adapters/<tool-name>/`
-2. Create an instruction template: `.ai-workspace/adapters/<tool-name>/<tool>.md`
-3. Create a mapping file: `.ai-workspace/adapters/<tool-name>/mapping.yaml`
-4. Add the tool's root-level stub (e.g., `.github/copilot-instructions.md`)
-5. Update `README.md` supported tools table
-6. Run `sync.sh` and `validate.sh`
+1. 创建目录：`.ai-workspace/adapters/<工具名>/`
+2. 创建适配器模板：`.ai-workspace/adapters/<工具名>/<工具名>.md`（可选）
+3. 创建映射文件：`.ai-workspace/adapters/<工具名>/mapping.yaml`
+4. 如需生成原生文件，在 `aiws` 的 `generate_tool_file()` 中添加 `case` 分支
+5. 在 `common.sh` 的 `get_tool_mcp_path()` 和 `get_tool_skills_path()` 中添加路径映射
+6. 更新 `workspace.json` 的 `tools` 列表
+7. 更新 `README.md` 支持的工具表
+8. 运行 `aiws sync` 和 `aiws validate`
 
-**Adapter template guidelines:**
+**适配器模板指南：**
 
-- Keep adapters under 50 lines. If you need more, the canonical
-  representation should be improved first.
-- Use the tool's native include/import mechanism when available.
-- Fall back to inline content when includes are not supported.
-- Document which version of the tool was tested.
+- 适配器保持在 50 行以内。如果需要更多，说明应先改进规范表示。
+- 可用时使用工具原生的 include/import 机制。
+- 不支持 include 时回退为内联内容。
+- 记录测试的工具版本。
 
-### mapping.yaml Format
+### mapping.yaml 格式
 
 ```yaml
 tool: codex
-version: ">=1.0"
-includes_support: true          # Does the tool support @include syntax?
-include_syntax: "@{path}"       # Include syntax pattern
+version: ">=0.1"
+includes_support: true          # 工具是否支持 @include 语法？
+include_syntax: "@{path}"       # Include 语法模式
 rules:
   - source: rules/00-core.md
     required: true
-  - source: rules/01-code-conventions.md
+  - source: rules/01-code-style.md
     required: true
-  - source: rules/domains/frontend.md
-    required: false              # Loaded only for frontend projects
+  - source: rules/domains/aspnet.md
+    required: false              # 仅在特定项目上下文中加载
 ```
 
-## Writing Canonical Rules
+## 编写规范规则
 
-Rules live in `.ai-workspace/rules/`. Follow this format:
+规则存放在 `.ai-workspace/rules/` 中。遵循以下格式：
 
 ```markdown
 ---
 id: nn-topic
-title: Human-Readable Title
-priority: 1-5                       # 1 = highest
-scope: [always, domain, context]    # When to apply
+title: 人类可读的标题
+scope: all
 ---
 
-# Title
+# 标题
 
-## Section
+## 章节
 
-- Rule in imperative mood ("Use X for Y")
-- Rationale in parentheses when non-obvious
-
-## Section
-
-- ...
+- 规则以祈使语气表述（"对文件名使用 kebab-case"）。
+- 推理不显而易见时在括号中附加理由。
 ```
 
-**Guidelines:**
+**指南：**
 
-- One topic per file. Split when a file exceeds 200 lines.
-- Write rules in **imperative mood** ("Use kebab-case for file names",
-  not "We should use kebab-case").
-- Include a brief rationale when the rule is not self-evident.
-- Use the `scope` field: `always` for universal rules, `domain` for
-  domain-specific, `context` for situational.
-- Never reference a specific AI Coding tool in canonical rules.
+- 每个文件一个主题。超过 200 行时拆分。
+- 规则用**祈使语气**书写（"对文件名使用 kebab-case"，而非"我们应该使用 kebab-case"）。
+- 规则不显而易见时包含简短理由。
+- 核心规则放在 `rules/`，领域特定规则放在 `rules/domains/`。
+- 永远不要在规范规则中引用特定的 AI Coding 工具。
 
-## Pull Request Process
+## 贡献脚本
 
-1. Fork and branch.
-2. Make your change following the guidelines above.
-3. Run `sync.sh` and `validate.sh`.
-4. Update `CHANGELOG.md` under `[Unreleased]`.
-5. Open a PR with a clear description.
+脚本使用 POSIX shell（`#!/bin/sh`），依赖 `jq` 处理 JSON。新增脚本遵循以下约定：
 
-A maintainer will review within a week.
+- 使用 `common.sh` 中的日志函数（`log_info`、`log_success`、`log_warn`、`log_error`、`log_debug`）
+- 通过 `has_jq` 检查依赖，通过 `require_cmd` 要求必需工具
+- 修改操作前调用 `backup_file`，写入使用 `write_atomic`
+- 支持 `--dry-run` 模式用于非破坏性预览
+- Shell 脚本不依赖 GNU 扩展——测试 macOS 兼容性
 
-## Style Guide
+## Pull Request 流程
 
-- **Language**: English (international, not US-specific idioms).
-- **Line length**: No hard limit, but prefer 100 characters.
-- **File names**: kebab-case for directories and non-tool files.
-- **YAML**: 2-space indent.
-- **Markdown**: ATX headings (`#`), fenced code blocks with language tags.
+1. Fork 并分支。
+2. 遵循上述指南进行修改。
+3. 运行 `aiws sync` 和 `aiws validate`。
+4. 更新 `CHANGELOG.md` 的 `[Unreleased]` 部分。
+5. 提交清晰的 PR 描述。
 
-## Recognition
+维护者将在一周内审查。
 
-All contributors are acknowledged in the repository. Significant
-contributions (new tool adapters, major rule sets) are called out
-in `CHANGELOG.md`.
+## 风格指南
+
+- **语言**：英文（国际通用，非美式习语）。文档和面向用户内容使用简体中文。
+- **行长度**：无硬性限制，但建议 100 字符。
+- **文件名**：目录和非工具文件使用 kebab-case。
+- **YAML**：2 空格缩进。
+- **Markdown**：ATX 标题（`#`），带语言标记的围栏代码块。
+
+## 致谢
+
+所有贡献者均在仓库中致谢。重要贡献（新工具适配器、主要规则集）在 `CHANGELOG.md` 中特别标注。

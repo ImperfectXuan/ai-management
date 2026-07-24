@@ -1,53 +1,60 @@
-English | [简体中文](ROADMAP.zh-CN.md)
+English | 简体中文
 
-# Roadmap
+# 路线图
 
-## Phase 0: Foundation — _In Progress_
+## Phase 0：基础设施 — ✅ 已完成
 
-| Task | Status |
+| 任务 | 状态 |
 |---|---|
-| Repository structure and directory tree | Done |
-| Canonical rules framework (`rules/`) | Done |
-| Codex adapter | Done |
-| Claude Code adapter | Done |
-| Documentation suite | Done |
-| sync script v0 | Pending |
-| validate script v0 | Pending |
+| 仓库结构和目录树 | ✅ 完成 |
+| 规范规则框架（`rules/`） | ✅ 完成 |
+| Codex 适配器 | ✅ 完成 |
+| Claude Code 适配器 | ✅ 完成 |
+| Cursor 适配器 | ✅ 完成 |
+| Trae 适配器 | ✅ 完成 |
+| 文档套件 | ✅ 完成 |
+| sync 脚本（`aiws sync`） | ✅ 完成 |
+| validate 脚本（`aiws validate`） | ✅ 完成 |
+| aiws CLI 入口 | ✅ 完成 |
+| MCP 同步引擎（JSON + TOML） | ✅ 完成 |
+| Skills 同步引擎（symlink） | ✅ 完成 |
+| 加密密钥保管库（age + TOTP 2FA） | ✅ 完成 |
+| 双向同步（`aiws import`） | ✅ 完成 |
 
-## Phase 1: Multi-Tool & Skills
+## Phase 1：增强 — 进行中
 
-| Task | Priority |
+| 任务 | 优先级 |
 |---|---|
-| Cursor adapter | P1 |
-| Trae adapter | P1 |
-| Skill DSL: cross-tool skill definitions | P1 |
-| ADR template and memory system | P1 |
-| Project context summaries | P1 |
-| Git pre-commit hook integration | P1 |
+| ADR 模板和记忆系统 | P1 |
+| 项目上下文摘要 | P1 |
+| Git pre-commit hook 集成 | P1 |
+| mapping.yaml 驱动的规则选择性包含 | P1 |
+| 规则反向导入（`aiws import rules`） | P2 |
+| GitHub Copilot 适配器 | P2 |
+| 按 tools 字段过滤规则 | P2 |
 
-## Phase 2: MCP & Automation
+## Phase 2：自动化与生态
 
-| Task | Priority |
+| 任务 | 优先级 |
 |---|---|
-| MCP server unified configuration | P2 |
-| CI/CD: auto-sync on push | P2 |
-| Rule versioning and change tracking | P2 |
-| Cross-project template extraction | P2 |
+| CI/CD：推送时自动同步 | P2 |
+| 规则版本化和变更追踪 | P2 |
+| 跨项目模板提取 | P2 |
+| 脚手架脚本：单命令项目初始化 | P3 |
 
-## Phase 3: Ecosystem
+## Phase 3：生态
 
-| Task | Priority |
+| 任务 | 优先级 |
 |---|---|
-| GitHub Copilot adapter | P3 |
-| Curated rule sets (language/domain packs) | P3 |
-| Scaffold script: one-command project init | P3 |
-| Community contribution templates | P3 |
+| 精选规则集（语言 / 领域包） | P3 |
+| 社区贡献模板 | P3 |
+| 规则集市场 | P3 |
 
-## Legend
+## 图例
 
-| Priority | Meaning |
+| 优先级 | 含义 |
 |---|---|
-| P0 | Core. Must be complete for MVP. |
-| P1 | Important. Ships soon after MVP. |
-| P2 | Valuable. Ships when bandwidth allows. |
-| P3 | Nice to have. Community contributions welcome. |
+| P0 | 核心。MVP 必须完成。 |
+| P1 | 重要。MVP 后尽快发布。 |
+| P2 | 有价值。带宽允许时发布。 |
+| P3 | 锦上添花。欢迎社区贡献。 |

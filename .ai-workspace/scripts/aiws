@@ -8,6 +8,7 @@
 #   setup       Initialize workspace and vault
 #   sync        Sync all configurations to AI tools
 #   validate    Validate workspace structure and configs
+#   import      Import existing MCP/Skills from tools into workspace
 #   mcp         Manage MCP server configurations
 #   skills      Manage skills and link them to tools
 #   secrets     Manage encrypted secrets
@@ -32,6 +33,7 @@ ${BOLD}COMMANDS:${NC}
     ${GREEN}setup${NC}       Initialize workspace structure and secrets vault
     ${GREEN}sync${NC}        Sync rules, MCP, and skills to all AI tools
     ${GREEN}validate${NC}    Validate workspace structure and configurations
+    ${GREEN}import${NC}      Import existing MCP/skills from tools into workspace
 
     ${GREEN}mcp${NC}         Manage MCP server configurations
         list               List configured MCP servers
@@ -51,6 +53,12 @@ ${BOLD}COMMANDS:${NC}
         remove <key>       Remove a secret
         audit              Show which tools use which secrets
 
+    ${GREEN}import${NC}      Import existing configs from tools into workspace
+        mcp [--from <t>]   Import MCP servers from tools into mcp.json
+        skills [--from <t>] Import skills from tools into workspace
+        rules [--from <t>]  Import rules (not yet implemented)
+        Options: --scope, --from, --dry-run, -y
+
 ${BOLD}OPTIONS:${NC}
     --tool <name>    Target specific tool (codex|claude|cursor|trae)
     --scope <scope>  Target specific scope (global|project)
@@ -63,6 +71,8 @@ ${BOLD}EXAMPLES:${NC}
     aiws sync --tool codex        # Sync only for Codex
     aiws mcp add github npx       # Add GitHub MCP server
     aiws skills link global       # Link skills globally
+    aiws import skills --dry-run  # Preview skill import
+    aiws import mcp --from codex  # Import MCP from Codex
     aiws secrets set GITHUB_TOKEN # Set encrypted secret
 
 ${BOLD}ENVIRONMENT:${NC}
@@ -386,6 +396,107 @@ cmd_secrets() {
 }
 
 # ============================================================================
+# Import Command
+# ============================================================================
+
+cmd_import() {
+  local what="${1:-}"
+
+  # Handle help flag regardless of position
+  case "$what" in
+    --help|-h|help)
+      echo ""
+      log_info "Usage: aiws import <mcp|skills|rules> [options]"
+      echo ""
+      log_info "Import existing tool configurations into workspace:"
+      printf "  ${GREEN}mcp${NC}     Import MCP servers from tools into mcp.json\n"
+      printf "  ${GREEN}skills${NC}  Import skills from tools into .ai-workspace/skills/\n"
+      printf "  ${GREEN}rules${NC}   Import rules from tools (not yet implemented)\n"
+      echo ""
+      log_info "Options:"
+      printf "  ${CYAN}--from <tool>${NC}   Import from specific tool (codex|claude|cursor|trae)\n"
+      printf "  ${CYAN}--scope <scope>${NC} Target scope (global|project)\n"
+      printf "  ${CYAN}--dry-run${NC}      Preview without making changes\n"
+      printf "  ${CYAN}--yes, -y${NC}      Skip confirmation prompt\n"
+      echo ""
+      log_info "Examples:"
+      printf "  aiws import skills --dry-run          # Preview skill discovery\n"
+      printf "  aiws import skills --from claude      # Import skills from Claude\n"
+      printf "  aiws import mcp --from codex --scope global  # Import Codex MCP\n"
+      echo ""
+      return 0
+      ;;
+  esac
+
+  shift || true
+  local from_tool=""
+  local scope_filter=""
+  local dry_run=0
+  local auto_yes=0
+
+  # Parse options
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --from)  from_tool="$2"; shift 2 ;;
+      --scope) scope_filter="$2"; shift 2 ;;
+      --dry-run) dry_run=1; shift ;;
+      --yes|-y) auto_yes=1; shift ;;
+      --help|-h)
+        echo ""
+        log_info "Usage: aiws import <mcp|skills|rules> [options]"
+        echo ""
+        log_info "Options:"
+        printf "  ${CYAN}--from <tool>${NC}   Import from specific tool (codex|claude|cursor|trae)\n"
+        printf "  ${CYAN}--scope <scope>${NC} Target scope (global|project)\n"
+        printf "  ${CYAN}--dry-run${NC}      Preview without making changes\n"
+        printf "  ${CYAN}--yes, -y${NC}      Skip confirmation prompt\n"
+        echo ""
+        log_info "Examples:"
+        printf "  aiws import skills --dry-run          # Preview skill discovery\n"
+        printf "  aiws import skills --from claude      # Import skills from Claude\n"
+        printf "  aiws import mcp --from codex --scope global  # Import Codex MCP\n"
+        echo ""
+        return 0
+        ;;
+      *)
+        log_error "Unknown option: $1"
+        return 1
+        ;;
+    esac
+  done
+
+  case "$what" in
+    mcp)
+      . "${SCRIPT_DIR}/lib/import-mcp.sh"
+      import_mcp "$from_tool" "$scope_filter" "$dry_run" "$auto_yes"
+      ;;
+    skills)
+      . "${SCRIPT_DIR}/lib/import-skills.sh"
+      import_skills "$from_tool" "$scope_filter" "$dry_run" "$auto_yes"
+      ;;
+    rules)
+      log_info "Rules import is not yet implemented."
+      log_info "All rules are already managed via .ai-workspace/rules/."
+      log_info "To add new rules, place .md files in .ai-workspace/rules/ or .ai-workspace/rules/domains/"
+      log_info "and register them in the adapter mapping.yaml files."
+      ;;
+    help|"")
+      log_info "Usage: aiws import <mcp|skills|rules> [--from <tool>] [--scope <scope>] [--dry-run] [-y]"
+      echo ""
+      log_info "Subcommands:"
+      printf "  ${GREEN}mcp${NC}     Import MCP servers from tools into mcp.json\n"
+      printf "  ${GREEN}skills${NC}  Import skills from tools into .ai-workspace/skills/\n"
+      printf "  ${GREEN}rules${NC}   Import rules from tools (not yet implemented)\n"
+      ;;
+    *)
+      log_error "Unknown import target: $what"
+      log_info "Usage: aiws import <mcp|skills|rules> [--from <tool>] [--scope <scope>] [--dry-run] [-y]"
+      exit 1
+      ;;
+  esac
+}
+
+# ============================================================================
 # Main Entry Point
 # ============================================================================
 
@@ -440,6 +551,9 @@ main() {
       ;;
     secrets)
       cmd_secrets "$@"
+      ;;
+    import)
+      cmd_import "$@"
       ;;
     help|"")
       show_help

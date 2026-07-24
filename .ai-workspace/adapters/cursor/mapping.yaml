@@ -4,5 +4,27 @@ includes_support: false
 rules:
   - source: rules/00-core.md
     required: true
-  - source: rules/01-code-conventions.md
+  - source: rules/01-code-style.md
+    required: true
+  - source: rules/02-project-structure.md
+    required: true
+  - source: rules/03-testing.md
+    required: true
+  - source: rules/04-documentation.md
+    required: true
+  - source: rules/05-version-control.md
+    required: true
+  - source: rules/06-error-handling.md
+    required: true
+  - source: rules/domains/aspnet.md
+    required: false
+  - source: rules/domains/vue3.md
+    required: false
+  - source: rules/domains/winforms.md
+    required: false
+  - source: rules/domains/wpf.md
+    required: false
+  - source: rules/domains/global-workflow.md
+    required: false
+  - source: rules/domains/karpathy-behavioral.md
     required: false
