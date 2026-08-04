@@ -1,0 +1,19 @@
+{
+  "name": "ai-workspace-tui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "esbuild src/index.jsx --bundle --packages=external --platform=node --format=cjs --jsx=transform --outdir=dist --outbase=src --log-level=warning",
+    "tui": "npm run build && node dist/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "ink": "^3.2.0",
+    "react": "^18.3.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "ink-testing-library": "^4.0.0"
+  }
+}
