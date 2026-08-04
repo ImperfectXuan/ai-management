@@ -1,5 +1,5 @@
 const React = require('react');
-const { useState } = React;
+const { useState, useEffect } = React;
 const { Box, Text, useInput } = require('ink');
 
 const TABS = ['仪表盘', '规则', 'MCP', '技能', '密钥', '生效规则'];
