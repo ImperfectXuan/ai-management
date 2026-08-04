@@ -176,7 +176,36 @@ skills_list() {
   local skills_dir="${AIWS_DIR}/skills"
   local tools
   tools="$(get_enabled_tools)"
-  
+
+  if [ "${AIWS_JSON:-0}" = "1" ]; then
+    local first=1
+    printf '{"skills":['
+    for skill_dir in "${skills_dir}"/*/; do
+      [ -d "$skill_dir" ] || continue
+      [ -f "${skill_dir}/SKILL.md" ] || continue
+      local skill_name desc
+      skill_name="$(basename "$skill_dir")"
+      desc="$(grep -m1 '^description:' "${skill_dir}/SKILL.md" | sed 's/^description:[[:space:]]*//' | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')"
+      [ "$first" = "1" ] || printf ','
+      first=0
+      printf '{"name":"%s","description":"%s","link_status":{' "$skill_name" "$desc"
+      local t_first=1
+      for tool in $tools; do
+        local g p gs ps
+        g="$(get_tool_skills_path "$tool" "global")/${skill_name}"
+        p="$(get_tool_skills_path "$tool" "project")/${skill_name}"
+        [ -e "$g" ] && gs="true" || gs="false"
+        [ -e "$p" ] && ps="true" || ps="false"
+        [ "$t_first" = "1" ] || printf ','
+        t_first=0
+        printf '"%s":{"global":%s,"project":%s}' "$tool" "$gs" "$ps"
+      done
+      printf '}}'
+    done
+    printf ']}\n'
+    return 0
+  fi
+
   echo "Skills in workspace:"
   echo ""
   
