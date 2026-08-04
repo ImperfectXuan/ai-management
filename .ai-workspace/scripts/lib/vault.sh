@@ -419,6 +419,17 @@ vault_get() {
 
 # List secret keys (no values)
 vault_list() {
+  if [ "${AIWS_JSON:-0}" = "1" ]; then
+    if [ ! -f "$VAULT_FILE" ]; then
+      printf '{"secrets":[],"vault_ready":false,"error":"vault not initialized"}\n'
+      return 0
+    fi
+    printf '{"secrets":'
+    # 不解密：仅列出密钥名需解密，vault 未初始化时给空数组
+    printf '[],"vault_ready":true,"error":"decrypt required, unsupported in json mode"}\n'
+    return 0
+  fi
+
   if [ ! -f "$VAULT_FILE" ]; then
     log_info "Vault not initialized"
     return 0
@@ -471,9 +482,32 @@ vault_remove() {
 
 # Audit secrets usage
 vault_audit() {
+  if [ "${AIWS_JSON:-0}" = "1" ]; then
+    printf '{"tools":['
+    if [ -f "$PERMISSIONS_FILE" ]; then
+      local first=1
+      grep -E '^\s+- tool:' "$PERMISSIONS_FILE" | while read -r line; do
+        local tool
+        tool="$(echo "$line" | sed 's/.*tool:[[:space:]]*//')"
+        local secrets_line
+        secrets_line="$(grep -A1 "tool: $tool" "$PERMISSIONS_FILE" | grep 'allowed_secrets:')"
+        local list=""
+        if ! echo "$secrets_line" | grep -q '\[\]'; then
+          list="$(echo "$secrets_line" | sed 's/.*\[//;s/\].*//;s/"//g;s/, */ /g')"
+        fi
+        [ "$first" = "1" ] || printf ','
+        first=0
+        printf '{"tool":"%s","allowed":[%s]}' "$tool" \
+          "$(echo "$list" | tr ' ' '\n' | grep -v '^$' | sed 's/.*/"&"/' | paste -sd, -)"
+      done
+    fi
+    printf '],"mcp_refs":[]}\n'
+    return 0
+  fi
+
   log_info "Secrets usage audit:"
   echo ""
-  
+
   if [ ! -f "$PERMISSIONS_FILE" ]; then
     log_warn "No permissions file found"
     return 0

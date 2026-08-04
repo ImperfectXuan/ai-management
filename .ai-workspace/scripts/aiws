@@ -368,8 +368,8 @@ cmd_secrets() {
   local subcmd="${1:-list}"
   shift || true
   
-  # audit doesn't need vault deps - it just reads permissions.yaml
-  if [ "$subcmd" != "audit" ]; then
+  # audit and json mode don't need vault deps - they only read file state / permissions.yaml
+  if [ "$subcmd" != "audit" ] && [ "${AIWS_JSON:-0}" != "1" ]; then
     if ! check_vault_deps 2>/dev/null; then
       log_error "Vault dependencies not met"
       log_info "Install with: brew install age oath-toolkit"
