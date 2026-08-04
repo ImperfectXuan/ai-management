@@ -3,6 +3,7 @@ const { useState, useEffect } = React;
 const { Box, Text, useInput } = require('ink');
 const { Dashboard } = require('./screens/dashboard');
 const { Rules } = require('./screens/rules');
+const { Mcp } = require('./screens/mcp');
 
 const TABS = ['仪表盘', '规则', 'MCP', '技能', '密钥', '生效规则'];
 
@@ -29,7 +30,7 @@ function App() {
       </Box>
       {tab === 0 ? <Dashboard /> : null}
       {tab === 1 ? <Rules /> : null}
-      {tab === 2 && <Text>MCP 页（待实现）</Text>}
+      {tab === 2 ? <Mcp /> : null}
       {tab === 3 && <Text>技能页（待实现）</Text>}
       {tab === 4 && <Text>密钥页（待实现）</Text>}
       {tab === 5 && <Text>生效规则页（待实现）</Text>}
