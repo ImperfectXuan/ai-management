@@ -33,6 +33,17 @@ English | 简体中文
 | GitHub Copilot 适配器 | P2 |
 | 按 tools 字段过滤规则 | P2 |
 
+## Phase 1.5：可视化 TUI（进行中，设计阶段）
+
+| 任务 | 优先级 | 状态 |
+|---|---|---|
+| aiws `--json` 输出：`mcp list` / `skills list` / `secrets list` / `secrets audit` | P0 | 设计中 |
+| Ink TUI：Dashboard / Rules / MCP / Skills / Secrets / 生效规则 | P0 | 设计中 |
+| 界面内编辑规则 + 保存自动 sync | P0 | 设计中 |
+| **延后：`validate --json` 结构化输出** | P1 | 待设计。TUI 需要仪表盘校验结果时再实现，避免首版 validate 全量结构化工作量过大 |
+| 延后：TUI 部署为全局工具（跨项目管理） | P2 | 首版仅项目内命令 |
+| 延后：secrets 写入操作（增删改） | P2 | 首版仅只读展示 + 审计 |
+
 ## Phase 2：自动化与生态
 
 | 任务 | 优先级 |
