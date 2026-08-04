@@ -1,6 +1,7 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const { execSync } = require('child_process');
+const { parseResult } = require('./json');
 
 function getRoot() {
   try {
@@ -24,4 +25,9 @@ function runAiws(args, { json = false } = {}) {
   });
 }
 
-module.exports = { runAiws, AIWS, getRoot };
+async function aiwsJson(args) {
+  const res = await runAiws(args, { json: true });
+  return { ...parseResult(res), code: res.code, stderr: res.stderr };
+}
+
+module.exports = { runAiws, aiwsJson, AIWS, getRoot };
