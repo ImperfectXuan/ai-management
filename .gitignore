@@ -3,8 +3,8 @@
 # Generated files (regenerate with: aiws sync)
 AGENTS.md
 CLAUDE.md
-.cursorrules
-.trae/rules.md
+.cursor/rules/
+.trae/rules/
 
 # Tool-specific MCP configs (synced from .ai-workspace/mcp/)
 .mcp.json
