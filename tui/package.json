@@ -4,7 +4,7 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "build": "esbuild src/index.jsx src/app.jsx --platform=node --format=cjs --jsx=transform --outdir=dist --log-level=warning",
+    "build": "esbuild src/index.jsx --bundle --packages=external --platform=node --format=cjs --jsx=transform --outdir=dist --outbase=src --log-level=warning",
     "tui": "npm run build && node dist/index.js",
     "test": "node --test"
   },

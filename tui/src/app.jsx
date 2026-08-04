@@ -1,6 +1,7 @@
 const React = require('react');
 const { useState, useEffect } = React;
 const { Box, Text, useInput } = require('ink');
+const { Dashboard } = require('./screens/dashboard');
 
 const TABS = ['仪表盘', '规则', 'MCP', '技能', '密钥', '生效规则'];
 
@@ -16,7 +17,7 @@ function App() {
         <Text bold color="cyan">AI Workspace TUI</Text>
       </Box>
       <Box marginTop={1}>
-        <Text>当前页: {TABS[tab]}（占位，后续任务实现）</Text>
+        <Text>当前页: {TABS[tab]}</Text>
       </Box>
       <Box marginTop={1} borderStyle="single" borderColor="gray">
         {TABS.map((t, i) => (
@@ -25,6 +26,12 @@ function App() {
           </Text>
         ))}
       </Box>
+      {tab === 0 && <Dashboard />}
+      {tab === 1 && <Text>规则页（待实现）</Text>}
+      {tab === 2 && <Text>MCP 页（待实现）</Text>}
+      {tab === 3 && <Text>技能页（待实现）</Text>}
+      {tab === 4 && <Text>密钥页（待实现）</Text>}
+      {tab === 5 && <Text>生效规则页（待实现）</Text>}
       <Text dimColor> 1-6 切换 | q 退出 | r 刷新 | ? 帮助</Text>
     </Box>
   );
