@@ -5,6 +5,7 @@ const { Dashboard } = require('./screens/dashboard');
 const { Rules } = require('./screens/rules');
 const { Mcp } = require('./screens/mcp');
 const { Skills } = require('./screens/skills');
+const { Secrets } = require('./screens/secrets');
 
 const TABS = ['仪表盘', '规则', 'MCP', '技能', '密钥', '生效规则'];
 
@@ -33,7 +34,7 @@ function App() {
       {tab === 1 ? <Rules /> : null}
       {tab === 2 ? <Mcp /> : null}
       {tab === 3 ? <Skills /> : null}
-      {tab === 4 && <Text>密钥页（待实现）</Text>}
+      {tab === 4 ? <Secrets /> : null}
       {tab === 5 && <Text>生效规则页（待实现）</Text>}
       <Text dimColor> 1-6 切换 | q 退出 | r 刷新 | ? 帮助</Text>
     </Box>
