@@ -339,7 +339,25 @@ mcp_remove() {
 # List MCP servers
 mcp_list() {
   local mcp_file="${AIWS_DIR}/mcp/mcp.json"
-  
+
+  if [ "${AIWS_JSON:-0}" = "1" ]; then
+    if [ ! -f "$mcp_file" ]; then
+      echo '{"servers":[],"error":"no mcp.json"}'
+      return 0
+    fi
+    if ! has_jq; then
+      echo '{"servers":[],"error":"jq not available"}'
+      return 0
+    fi
+    jq -n --slurpfile servers "$mcp_file" '
+      { servers: ( $servers[0].servers | to_entries | map({
+          name: .key,
+          command: (.value.command // .value.url // "")
+        }) ) }
+    '
+    return 0
+  fi
+
   if [ ! -f "$mcp_file" ]; then
     log_info "No MCP servers configured"
     return 0
