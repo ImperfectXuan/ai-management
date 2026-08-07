@@ -1,0 +1,22 @@
+export const IPC = {
+  WorkspaceList: 'workspace:list',
+  WorkspaceAdd: 'workspace:add',
+  WorkspaceRemove: 'workspace:remove',
+  RulesList: 'rules:list',
+  RulesSetRequired: 'rules:setRequired',
+  McpList: 'mcp:list',
+  McpAdd: 'mcp:add',
+  McpRemove: 'mcp:remove',
+  SkillsList: 'skills:list',
+  SkillsLink: 'skills:link',
+  SkillsUnlink: 'skills:unlink',
+  SyncRun: 'sync:run',
+  SyncCancel: 'sync:cancel',
+  SyncProgress: 'sync:progress',
+  SyncDone: 'sync:done',
+  SyncAll: 'sync:all',
+  DiffCompare: 'diff:compare',
+  SecretsList: 'secrets:list',
+  SecretsAudit: 'secrets:audit',
+} as const;
+export type IpcChannel = (typeof IPC)[keyof typeof IPC];

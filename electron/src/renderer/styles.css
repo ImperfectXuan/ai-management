@@ -1,0 +1,3 @@
+/* src/renderer/styles.css —— 占位，后续 Task 13-17 逐步补样式 */
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif; background: #1e1f24; color: #e8e8ea; }
