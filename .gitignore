@@ -25,6 +25,9 @@ CLAUDE.md
 .DS_Store
 Thumbs.db
 
+# Git worktrees
+.worktrees/
+
 # Editor files
 *.swp
 *.swo
