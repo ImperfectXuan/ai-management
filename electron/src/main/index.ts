@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
 import { registerIpc } from './ipc';
+import { createTray } from './tray';
 
 let win: BrowserWindow | null = null;
 
@@ -21,6 +22,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   registerIpc();
+  createTray();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
