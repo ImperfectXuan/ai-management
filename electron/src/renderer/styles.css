@@ -1,3 +1,33 @@
-/* src/renderer/styles.css —— 占位，后续 Task 13-17 逐步补样式 */
+/* src/renderer/styles.css —— 深色简洁布局，Task 13-17 逐步补样式 */
 * { box-sizing: border-box; }
 body { margin: 0; font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif; background: #1e1f24; color: #e8e8ea; }
+
+/* 布局骨架 */
+.shell { display: flex; height: 100vh; }
+.sidebar { width: 240px; border-right: 1px solid #333; padding: 12px; overflow-y: auto; }
+.sidebar-title { color: #888; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; }
+.content { flex: 1; display: flex; flex-direction: column; }
+.tabs { display: flex; gap: 4px; padding: 8px 12px; border-bottom: 1px solid #333; }
+.tab { background: transparent; border: none; color: #aaa; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+.tab.active { background: #2f3542; color: #fff; }
+.page { flex: 1; padding: 16px 20px; overflow-y: auto; }
+.statusbar { border-top: 1px solid #333; padding: 6px 12px; color: #888; font-size: 12px; }
+
+/* 仓库列表 */
+.repo-item { display: block; width: 100%; text-align: left; background: transparent; border: none; color: #ccc; padding: 8px; border-radius: 6px; cursor: pointer; margin-bottom: 2px; }
+.repo-item.active { background: #2f3542; }
+.repo-name { font-weight: 600; }
+.repo-path { font-size: 11px; color: #777; }
+.add-repo { margin-top: 12px; width: 100%; padding: 8px; background: #2f3542; border: none; color: #fff; border-radius: 6px; cursor: pointer; }
+
+/* 通用控件 */
+.input { background: #2a2b30; border: 1px solid #444; color: #eee; padding: 8px 10px; border-radius: 6px; flex: 1; }
+.row { display: flex; gap: 8px; }
+.error { color: #ff6b6b; margin-top: 8px; }
+.muted { color: #777; }
+.danger { background: #3a1d1d; color: #ff8080; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+
+/* 仓库管理页 */
+.workspaces { max-width: 640px; margin: 0 auto; padding: 24px; }
+.repo-list { list-style: none; margin: 16px 0 0; padding: 0; }
+.repo-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #2a2b30; }
