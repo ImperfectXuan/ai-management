@@ -38,3 +38,17 @@ body { margin: 0; font-family: -apple-system, "PingFang SC", "Helvetica Neue", s
 .card-title { font-weight: 700; margin-bottom: 8px; text-transform: capitalize; }
 .card-stat { color: #aaa; font-size: 13px; }
 .log { background: #141519; border-radius: 8px; padding: 12px; font-size: 12px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; }
+
+/* 规则页 */
+.rule-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #2a2b30; }
+.switch { position: relative; width: 40px; height: 22px; display: inline-block; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; inset: 0; background: #444; border-radius: 22px; cursor: pointer; transition: 0.2s; }
+.slider::before { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
+.switch input:checked + .slider { background: #4cd964; }
+.switch input:checked + .slider::before { transform: translateX(18px); }
+
+/* MCP 页 */
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { text-align: left; padding: 8px; border-bottom: 1px solid #2a2b30; }
+.form { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; max-width: 480px; }
