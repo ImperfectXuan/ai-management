@@ -57,3 +57,9 @@ body { margin: 0; font-family: -apple-system, "PingFang SC", "Helvetica Neue", s
 .master-detail { display: flex; gap: 16px; height: 100%; }
 .master { list-style: none; margin: 0; padding: 0; width: 260px; border-right: 1px solid #2a2b30; overflow-y: auto; }
 .detail { flex: 1; padding-left: 16px; }
+
+/* 差异对比页 */
+.diff { background: #141519; padding: 12px; border-radius: 8px; font-size: 12px; overflow-x: auto; white-space: pre; }
+.diff .added { display: block; color: #4cd964; }
+.diff .removed { display: block; color: #ff6b6b; }
+select.input { width: auto; }
