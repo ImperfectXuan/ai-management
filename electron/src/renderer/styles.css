@@ -31,3 +31,10 @@ body { margin: 0; font-family: -apple-system, "PingFang SC", "Helvetica Neue", s
 .workspaces { max-width: 640px; margin: 0 auto; padding: 24px; }
 .repo-list { list-style: none; margin: 16px 0 0; padding: 0; }
 .repo-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #2a2b30; }
+
+/* 仪表盘 */
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.card { background: #26272d; border-radius: 8px; padding: 14px; }
+.card-title { font-weight: 700; margin-bottom: 8px; text-transform: capitalize; }
+.card-stat { color: #aaa; font-size: 13px; }
+.log { background: #141519; border-radius: 8px; padding: 12px; font-size: 12px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; }
