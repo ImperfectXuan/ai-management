@@ -52,3 +52,8 @@ body { margin: 0; font-family: -apple-system, "PingFang SC", "Helvetica Neue", s
 .table { width: 100%; border-collapse: collapse; }
 .table th, .table td { text-align: left; padding: 8px; border-bottom: 1px solid #2a2b30; }
 .form { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; max-width: 480px; }
+
+/* 技能页 */
+.master-detail { display: flex; gap: 16px; height: 100%; }
+.master { list-style: none; margin: 0; padding: 0; width: 260px; border-right: 1px solid #2a2b30; overflow-y: auto; }
+.detail { flex: 1; padding-left: 16px; }
