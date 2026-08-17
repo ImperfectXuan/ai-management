@@ -91,7 +91,8 @@ export function App() {
 }
 
 // 浏览器环境挂载；测试环境（jsdom 无 #root）跳过 render，便于组件导入测试
-const root = document.getElementById('root');
-if (root) {
-  createRoot(root).render(<App />);
+// 用 typeof 守卫：ESM import 提升下，测试的 document 赋值晚于模块加载，裸访问 document 会抛 ReferenceError
+if (typeof document !== 'undefined') {
+  const root = document.getElementById('root');
+  if (root) createRoot(root).render(<App />);
 }

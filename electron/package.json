@@ -9,7 +9,7 @@
     "build:preload": "esbuild src/main/preload.ts --bundle --platform=node --external:electron --outfile=dist/main/preload.js",
     "build:renderer": "esbuild src/renderer/App.tsx --bundle --platform=browser --jsx=automatic --outfile=dist/renderer/app.js && cp src/renderer/index.html src/renderer/styles.css dist/renderer/",
     "start": "npm run build && electron .",
-    "test": "node --import tsx --test test/*.test.ts",
+    "test": "node --import tsx --test test/*.test.ts test/*.test.tsx",
     "dist": "npm run build && electron-builder --mac --arm64"
   },
   "devDependencies": {
