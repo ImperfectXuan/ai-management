@@ -103,9 +103,12 @@ vim .ai-workspace/rules/00-core.md
 
 | 文档 | 说明 |
 |---|---|
-| [架构设计](docs/ARCHITECTURE.zh-CN.md) | 系统设计、分层与数据流 |
-| [设计哲学](docs/DESIGN_PHILOSOPHY.zh-CN.md) | 原则、权衡与设计理由 |
-| [常见问题](docs/FAQ.zh-CN.md) | 常见问题解答 |
+| [总体 Spec](docs/SPEC.md) | 项目定位、架构、三交付物、目录结构 |
+| [测试指导](docs/TESTING.md) | 按 task 逐步验证的测试用例 |
+| [文档索引](docs/README.md) | 全部文档的导航 |
+| [架构设计](docs/reference/ARCHITECTURE.zh-CN.md) | 系统设计、分层与数据流 |
+| [设计哲学](docs/reference/DESIGN_PHILOSOPHY.zh-CN.md) | 原则、权衡与设计理由 |
+| [常见问题](docs/reference/FAQ.zh-CN.md) | 常见问题解答 |
 | [路线图](ROADMAP.zh-CN.md) | 计划功能与里程碑 |
 | [贡献指南](CONTRIBUTING.zh-CN.md) | 如何参与贡献 |
 | [变更日志](CHANGELOG.zh-CN.md) | 版本历史 |

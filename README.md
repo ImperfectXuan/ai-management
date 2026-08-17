@@ -168,9 +168,12 @@ aiws import mcp --from codex      # 从 Codex 导入 MCP
 
 | 文档 | 说明 |
 |---|---|
-| [架构设计](docs/ARCHITECTURE.zh-CN.md) | 系统设计、分层与数据流 |
-| [设计哲学](docs/DESIGN_PHILOSOPHY.zh-CN.md) | 原则、权衡与理由 |
-| [FAQ](docs/FAQ.zh-CN.md) | 常见问题 |
+| [总体 Spec](docs/SPEC.md) | 项目定位、架构、三交付物、目录结构 |
+| [测试指导](docs/TESTING.md) | 按 task 逐步验证的测试用例 |
+| [文档索引](docs/README.md) | 全部文档的导航 |
+| [架构设计](docs/reference/ARCHITECTURE.zh-CN.md) | 系统设计、分层与数据流 |
+| [设计哲学](docs/reference/DESIGN_PHILOSOPHY.zh-CN.md) | 原则、权衡与理由 |
+| [FAQ](docs/reference/FAQ.zh-CN.md) | 常见问题 |
 | [Roadmap](ROADMAP.md) | 计划的功能与里程碑 |
 | [贡献指南](CONTRIBUTING.md) | 如何贡献 |
 | [Changelog](CHANGELOG.md) | 版本历史 |
