@@ -1,0 +1,22 @@
+appId: com.aiworkspace.desktop
+productName: AI Workspace
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - package.json
+mac:
+  target:
+    - target: dmg
+      arch: [arm64]
+  category: public.app-category.developer-tools
+  icon: build/icon.icns
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications

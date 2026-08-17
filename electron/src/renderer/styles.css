@@ -1,0 +1,65 @@
+/* src/renderer/styles.css —— 深色简洁布局，Task 13-17 逐步补样式 */
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif; background: #1e1f24; color: #e8e8ea; }
+
+/* 布局骨架 */
+.shell { display: flex; height: 100vh; }
+.sidebar { width: 240px; border-right: 1px solid #333; padding: 12px; overflow-y: auto; }
+.sidebar-title { color: #888; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; }
+.content { flex: 1; display: flex; flex-direction: column; }
+.tabs { display: flex; gap: 4px; padding: 8px 12px; border-bottom: 1px solid #333; }
+.tab { background: transparent; border: none; color: #aaa; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+.tab.active { background: #2f3542; color: #fff; }
+.page { flex: 1; padding: 16px 20px; overflow-y: auto; }
+.statusbar { border-top: 1px solid #333; padding: 6px 12px; color: #888; font-size: 12px; }
+
+/* 仓库列表 */
+.repo-item { display: block; width: 100%; text-align: left; background: transparent; border: none; color: #ccc; padding: 8px; border-radius: 6px; cursor: pointer; margin-bottom: 2px; }
+.repo-item.active { background: #2f3542; }
+.repo-name { font-weight: 600; }
+.repo-path { font-size: 11px; color: #777; }
+.add-repo { margin-top: 12px; width: 100%; padding: 8px; background: #2f3542; border: none; color: #fff; border-radius: 6px; cursor: pointer; }
+
+/* 通用控件 */
+.input { background: #2a2b30; border: 1px solid #444; color: #eee; padding: 8px 10px; border-radius: 6px; flex: 1; }
+.row { display: flex; gap: 8px; }
+.error { color: #ff6b6b; margin-top: 8px; }
+.muted { color: #777; }
+.danger { background: #3a1d1d; color: #ff8080; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+
+/* 仓库管理页 */
+.workspaces { max-width: 640px; margin: 0 auto; padding: 24px; }
+.repo-list { list-style: none; margin: 16px 0 0; padding: 0; }
+.repo-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #2a2b30; }
+
+/* 仪表盘 */
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.card { background: #26272d; border-radius: 8px; padding: 14px; }
+.card-title { font-weight: 700; margin-bottom: 8px; text-transform: capitalize; }
+.card-stat { color: #aaa; font-size: 13px; }
+.log { background: #141519; border-radius: 8px; padding: 12px; font-size: 12px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; }
+
+/* 规则页 */
+.rule-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #2a2b30; }
+.switch { position: relative; width: 40px; height: 22px; display: inline-block; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; inset: 0; background: #444; border-radius: 22px; cursor: pointer; transition: 0.2s; }
+.slider::before { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
+.switch input:checked + .slider { background: #4cd964; }
+.switch input:checked + .slider::before { transform: translateX(18px); }
+
+/* MCP 页 */
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { text-align: left; padding: 8px; border-bottom: 1px solid #2a2b30; }
+.form { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; max-width: 480px; }
+
+/* 技能页 */
+.master-detail { display: flex; gap: 16px; height: 100%; }
+.master { list-style: none; margin: 0; padding: 0; width: 260px; border-right: 1px solid #2a2b30; overflow-y: auto; }
+.detail { flex: 1; padding-left: 16px; }
+
+/* 差异对比页 */
+.diff { background: #141519; padding: 12px; border-radius: 8px; font-size: 12px; overflow-x: auto; white-space: pre; }
+.diff .added { display: block; color: #4cd964; }
+.diff .removed { display: block; color: #ff6b6b; }
+select.input { width: auto; }
