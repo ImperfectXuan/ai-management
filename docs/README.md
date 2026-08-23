@@ -28,6 +28,7 @@
 | 文档 | 说明 |
 |---|---|
 | [ai-coding-workflow-research.zh-CN.md](research/ai-coding-workflow-research.zh-CN.md) | AI Coding 工作流调研素材库（博客写作参考，非项目文档） |
+| [open-source-alternatives.zh-CN.md](research/open-source-alternatives.zh-CN.md) | AI Workspace 开源替代品竞品调研报告（2026-08 核实） |
 
 ## 设计与实施（superpowers/）
 
