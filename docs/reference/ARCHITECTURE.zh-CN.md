@@ -4,8 +4,6 @@ title: Architecture Design
 scope: all
 ---
 
-[English](ARCHITECTURE.md) | 简体中文
-
 # 架构设计
 
 ## 概述

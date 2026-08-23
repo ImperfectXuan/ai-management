@@ -1,5 +1,3 @@
-English | 简体中文
-
 # 为 AI Workspace 贡献
 
 感谢你的贡献兴趣。AI Workspace 旨在随 AI Coding 工具生态一同成长，来自不同工具用户的贡献至关重要。

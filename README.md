@@ -5,8 +5,6 @@
   </p>
 </p>
 
-[English](README.md) | 简体中文
-
 ---
 
 ## AI Workspace 是什么？

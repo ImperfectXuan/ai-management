@@ -1,5 +1,3 @@
-English | 简体中文
-
 # 更新日志
 
 本文件记录 AI Workspace 项目的所有显著变更。

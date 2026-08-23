@@ -1,7 +1,5 @@
 # 常见问题
 
-[English](FAQ.md) | 简体中文
-
 ## 概述
 
 ### AI Workspace 解决什么问题？

@@ -1,7 +1,5 @@
 # 设计哲学
 
-[English](DESIGN_PHILOSOPHY.md) | 简体中文
-
 ## 核心原则
 
 ### 1. 规范核心，薄适配器
