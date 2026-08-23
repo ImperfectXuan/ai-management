@@ -27,6 +27,8 @@ English | 简体中文
 - **7 条规范核心规则** — 覆盖通用开发约定的 `00-core` 至 `06-error-handling`。
 - **6 条领域规则** — 从 `~/.ai-rules/*.mdc` 转换的 ASP.NET、Vue 3、WinForms、WPF、Karpathy 行为准则、全局工作流。
 - **设计文档** — Phase 1 多工具、Skills DSL 和记忆系统的设计规格（中文）。
+- **可视化 TUI（`tui/`）** — Ink + React 终端界面，六页（仪表盘 / 规则 / MCP / 技能 / 密钥 / 生效规则），薄壳调用 `aiws` CLI；`aiws --json` 结构化输出支撑各页。
+- **Desktop 独立 macOS 应用（`electron/`）** — Electron + React + TypeScript 管理应用。core 层纯 TS 重写（规则 / MCP / 技能 / 同步 / 行级 diff / 仓库 / 配置 / 错误模型），renderer → main（IPC）→ core 三层架构，core 可脱离 GUI 直测（32 用例）。多仓库管理、仪表盘一键同步（可取消 + 进度 + 系统通知）、规则装载开关、MCP 增删、技能链接/卸载、密钥只读审计、规范 vs 生成差异对比、托盘快捷操作、dmg 打包（arm64）。
 
 ### Changed
 

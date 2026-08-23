@@ -11,11 +11,11 @@
 | 阶段 | 状态 | 可验收内容 |
 |---|---|---|
 | Phase 1 core 层（Task 2-9） | ✅ 已完成 | 自动化测试全绿 + 模块级 CLI 冒烟 |
-| Phase 2 main 进程（Task 10-12） | 待开发 | IPC 接线、托盘、通知 |
-| Phase 3 renderer 界面（Task 13-18） | 待开发 | GUI 各页面功能走查 |
-| Phase 4 打包（Task 19-20） | 待开发 | dmg 打包 + 端到端验收 |
+| Phase 2 main 进程（Task 10-12） | ✅ 已完成 | IPC 接线、托盘、通知 |
+| Phase 3 renderer 界面（Task 13-18） | ✅ 已完成 | GUI 各页面功能走查 |
+| Phase 4 打包（Task 19-20） | ✅ 已完成 | dmg 打包 + 端到端验收 |
 
-**当前重点**：Phase 1 已交付，本节提供其验收方法。后续阶段完成后，按 §2 逐步验收。
+**当前状态**：四阶段全部交付。§1 自动化验收 + §2 模块级冒烟（core 层）+ §3 GUI 逐页走查 + §4 打包验收，均可按本文件执行。
 
 ---
 
@@ -24,8 +24,8 @@
 ### 1.1 测试命令
 
 ```bash
-cd /Users/xuanyi/Documents/AI-management/.worktrees/desktop-app/electron
-npm test            # 全量测试（当前 27 个用例）
+cd /Users/xuanyi/Documents/AI-management/electron
+npm test            # 全量测试（当前 32 个用例）
 npm test 2>&1 | grep -E "✖|✔"    # 只看用例名与失败
 ```
 
@@ -42,7 +42,7 @@ npm test 2>&1 | grep -E "✖|✔"    # 只看用例名与失败
 | sync | `test/sync.test.ts` | 规则生成 frontmatter；幂等清空；进度行 + MCP 同步 |
 | diff | `test/diff.test.ts` | identical；单/多 hunk 增删识别 |
 
-**验收标准**：`npm test` 输出 `pass 27 / fail 0`。
+**验收标准**：`npm test` 输出 `pass 32 / fail 0`。
 
 ### 1.3 测试追加规则
 
