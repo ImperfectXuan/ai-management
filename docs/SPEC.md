@@ -2,7 +2,7 @@
 
 > 本文档是 AI Workspace 的总体规格说明，串联本仓库三个交付物（CLI / TUI / Desktop）。
 > 面向新加入的开发者：读完本文应能回答「这是什么、怎么工作、有哪些组成部分、目录长什么样」。
-> 详细设计见 [reference/ARCHITECTURE.zh-CN.md](reference/ARCHITECTURE.zh-CN.md) 与 [reference/DESIGN_PHILOSOPHY.zh-CN.md](reference/DESIGN_PHILOSOPHY.zh-CN.md)。
+> 详细设计见 [reference/ARCHITECTURE.md](reference/ARCHITECTURE.md) 与 [reference/DESIGN_PHILOSOPHY.md](reference/DESIGN_PHILOSOPHY.md)。
 
 ---
 
@@ -198,15 +198,15 @@ description: 结构化构思和设计探索
 
 反模式（禁止）：规范文件中写工具特定规则、适配器超过 50 行、手动编辑生成文件、混用规则与记忆、过度配置。
 
-完整论述见 [reference/DESIGN_PHILOSOPHY.zh-CN.md](reference/DESIGN_PHILOSOPHY.zh-CN.md)。
+完整论述见 [reference/DESIGN_PHILOSOPHY.md](reference/DESIGN_PHILOSOPHY.md)。
 
 ---
 
 ## 相关文档
 
 - [文档索引](README.md)
-- [架构设计](reference/ARCHITECTURE.zh-CN.md)
-- [设计哲学](reference/DESIGN_PHILOSOPHY.zh-CN.md)
-- [常见问题](reference/FAQ.zh-CN.md)
+- [架构设计](reference/ARCHITECTURE.md)
+- [设计哲学](reference/DESIGN_PHILOSOPHY.md)
+- [常见问题](reference/FAQ.md)
 - [测试指导](TESTING.md)
 - [路线图](../ROADMAP.md)

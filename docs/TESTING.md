@@ -575,7 +575,7 @@ cd tui && npm test          # TUI：node:test（含 aiws/json/screens）
 ## 相关文档
 
 - [总体 Spec](SPEC.md)
-- [架构设计](reference/ARCHITECTURE.zh-CN.md)
+- [架构设计](reference/ARCHITECTURE.md)
 - [桌面应用验收指导](../electron/ACCEPTANCE.zh-CN.md)
 - [TUI README](../tui/README.md)
 - [实施计划：TUI](superpowers/plans/2026-08-04-tui.md)

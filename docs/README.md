@@ -13,9 +13,9 @@
 
 | 文档 | 说明 |
 |---|---|
-| [ARCHITECTURE.zh-CN.md](reference/ARCHITECTURE.zh-CN.md) | 架构设计：三层架构、数据流、文件格式契约、CLI 命令体系 |
-| [DESIGN_PHILOSOPHY.zh-CN.md](reference/DESIGN_PHILOSOPHY.zh-CN.md) | 设计哲学：五原则、显式权衡、反模式、与替代方案对比 |
-| [FAQ.zh-CN.md](reference/FAQ.zh-CN.md) | 常见问题：安装配置、双向同步、工具兼容、规则、维护 |
+| [ARCHITECTURE.md](reference/ARCHITECTURE.md) | 架构设计：三层架构、数据流、文件格式契约、CLI 命令体系 |
+| [DESIGN_PHILOSOPHY.md](reference/DESIGN_PHILOSOPHY.md) | 设计哲学：五原则、显式权衡、反模式、与替代方案对比 |
+| [FAQ.md](reference/FAQ.md) | 常见问题：安装配置、双向同步、工具兼容、规则、维护 |
 
 ## 操作指南（guides/）
 
