@@ -108,7 +108,7 @@ read_rule_meta() {
 generate_rule_files() {
   local tool="$1" target_scope="$2"
   local ext=".mdc" out_dir="" mapping rel required
-  local count=0
+  local count=0 backed_up=""
 
   case "$tool" in
     cursor) out_dir="${AIWS_ROOT}/.cursor/rules" ;;
@@ -118,17 +118,67 @@ generate_rule_files() {
 
   ensure_dir "$out_dir"
 
-  # Clean stale files before regenerating (idempotent)
-  if [ -n "$(ls -A "$out_dir" 2>/dev/null)" ]; then
-    rm -f "$out_dir"/*
-  fi
-
   mapping="${AIWS_DIR}/adapters/${tool}/mapping.yaml"
   if [ ! -f "$mapping" ]; then
     log_warn "No mapping.yaml for ${tool}; skipping per-rule generation"
     return 0
   fi
 
+  # 第一遍：算出本次会生成的文件名集合，作为白名单
+  local expected=""
+  for rule_file in "${AIWS_DIR}"/rules/*.md "${AIWS_DIR}"/rules/domains/*.md; do
+    [ -f "$rule_file" ] || continue
+    if [ "$target_scope" = "global" ] && is_domain_rule "$rule_file"; then
+      continue
+    fi
+    if [ "$target_scope" = "project" ] && ! is_domain_rule "$rule_file"; then
+      continue
+    fi
+    if is_domain_rule "$rule_file"; then
+      rel="rules/domains/$(basename "$rule_file")"
+    else
+      rel="rules/$(basename "$rule_file")"
+    fi
+    required="$(get_mapping_required "$mapping" "$rel")"
+    [ -z "$required" ] && continue
+    local rid
+    rid="$(basename "$rule_file" .md)"
+    expected="${expected}${rid}${ext}"$'\n'
+  done
+
+  # 用白名单 + .bak 备份替代无差别 `rm -f out_dir/*`
+  # 对 out_dir 中每一个存在的项：
+  #   - 已是 .bak：跳过（不重复处理）
+  #   - 在白名单内：跳过（writeFile 会覆盖）
+  #   - 其它：重命名为 *.bak；若同名 .bak 已存在则附加时间戳
+  if [ -d "$out_dir" ]; then
+    for f in "$out_dir"/*; do
+      [ -e "$f" ] || continue
+      local fname
+      fname="$(basename "$f")"
+      case "$fname" in
+        *.bak) continue ;;
+      esac
+      # 白名单命中：跳过
+      if [ -n "$expected" ] && printf '%s\n' "$expected" | grep -qxF "$fname"; then
+        continue
+      fi
+      local bak="$f.bak"
+      if [ -e "$bak" ]; then
+        bak="$f.$(date +%Y%m%d-%H%M%S).bak"
+      fi
+      if mv "$f" "$bak" 2>/dev/null; then
+        backed_up="${backed_up} $(basename "$bak")"
+        if [ -d "$bak" ]; then
+          log_warn "已备份非预期目录: ${fname}/ -> $(basename "$bak")"
+        else
+          log_warn "已备份非预期文件: ${fname} -> $(basename "$bak")"
+        fi
+      fi
+    done
+  fi
+
+  # 第二遍：生成
   for rule_file in "${AIWS_DIR}"/rules/*.md "${AIWS_DIR}"/rules/domains/*.md; do
     [ -f "$rule_file" ] || continue
 
@@ -177,6 +227,10 @@ generate_rule_files() {
 
     count=$((count + 1))
   done
+
+  if [ -n "$backed_up" ]; then
+    log_warn "本轮 sync 备份了非预期文件:${backed_up}"
+  fi
 
   if [ "$count" -gt 0 ]; then
     log_success "Generated: ${tool} rules - ${count} file(s) in $(basename "$out_dir")"
