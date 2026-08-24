@@ -7,6 +7,7 @@
 | 文档 | 说明 |
 |---|---|
 | [SPEC.md](SPEC.md) | **项目总体 spec**——是什么、怎么工作、三个交付物、目录结构 |
+| [FEATURE_BREAKDOWN.md](FEATURE_BREAKDOWN.md) | **功能面拆解**——按业务域（规则/技能/MCP/密钥/记忆/配置）+ 横切能力梳理现状、端覆盖、TODO |
 | [TESTING.md](TESTING.md) | **逐步验证测试指导**——按 TUI/Desktop 每个 task 给出具体测试用例 |
 
 ## 参考（reference/）
@@ -27,7 +28,6 @@
 
 | 文档 | 说明 |
 |---|---|
-| [ai-coding-workflow-research.zh-CN.md](research/ai-coding-workflow-research.zh-CN.md) | AI Coding 工作流调研素材库（博客写作参考，非项目文档） |
 | [open-source-alternatives.zh-CN.md](research/open-source-alternatives.zh-CN.md) | AI Workspace 开源替代品竞品调研报告（2026-08 核实） |
 
 ## 设计与实施（superpowers/）
@@ -38,6 +38,7 @@
 |---|---|
 | [specs/](superpowers/specs/) | 设计规格（canonical-rules / phase1 / tui / desktop-app） |
 | [plans/](superpowers/plans/) | 实施计划（tui 12 task / desktop-app 20 task） |
+| [reviews/](superpowers/reviews/) | 代码审查报告 + 人工验证指导（按业务域归档） |
 
 ## 根目录文档
 
