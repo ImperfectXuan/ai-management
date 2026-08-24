@@ -65,6 +65,7 @@ sync_skills() {
 sync_skills_for_tool() {
   local tool="$1"
   local scope="$2"
+  local only_skill="${3:-}"
   
   local skills_dir="${AIWS_DIR}/skills"
   local target_base
@@ -81,7 +82,16 @@ sync_skills_for_tool() {
   # Link each skill
   local linked_count=0
   
-  for skill_dir in "${skills_dir}"/*/; do
+  local skill_glob="${skills_dir}"/*/
+  if [ -n "$only_skill" ]; then
+    if [ ! -d "${skills_dir}/${only_skill}" ]; then
+      log_error "Skill not found: $only_skill"
+      return 1
+    fi
+    skill_glob="${skills_dir}/${only_skill}/"
+  fi
+
+  for skill_dir in $skill_glob; do
     [ -d "$skill_dir" ] || continue
     
     local skill_name
@@ -116,8 +126,8 @@ sync_skills_for_tool() {
 skills_link() {
   local scope="${1:-global}"
   local tool="${2:-}"
+  local skill_name="${3:-}"
   
-  local skills_dir="${AIWS_DIR}/skills"
   local tools
   local scopes
   
@@ -130,7 +140,7 @@ skills_link() {
   
   for t in $tools; do
     for s in $scopes; do
-      sync_skills_for_tool "$t" "$s"
+      sync_skills_for_tool "$t" "$s" "$skill_name"
     done
   done
 }
@@ -139,6 +149,7 @@ skills_link() {
 skills_unlink() {
   local scope="${1:-global}"
   local tool="${2:-}"
+  local skill_name="${3:-}"
   
   local tools
   if [ -n "$tool" ]; then
@@ -155,17 +166,32 @@ skills_unlink() {
       continue
     fi
     
+    local skill_glob="${AIWS_DIR}/skills"/*/
+    if [ -n "$skill_name" ]; then
+      if [ ! -d "${AIWS_DIR}/skills/${skill_name}" ]; then
+        log_error "Skill not found: $skill_name"
+        return 1
+      fi
+      skill_glob="${AIWS_DIR}/skills/${skill_name}/"
+    fi
+
     # Remove links for our skills
-    for skill_dir in "${AIWS_DIR}/skills"/*/; do
+    for skill_dir in $skill_glob; do
       [ -d "$skill_dir" ] || continue
       
-      local skill_name
-      skill_name="$(basename "$skill_dir")"
-      local target_path="${target_base}/${skill_name}"
+      local current_skill_name
+      current_skill_name="$(basename "$skill_dir")"
+      local target_path="${target_base}/${current_skill_name}"
+      local source_path
+      source_path="$(cd "$skill_dir" && pwd)"
       
       if [ -e "$target_path" ] || [ -L "$target_path" ]; then
-        remove_link "$target_path"
-        log_success "Unlinked: $t/$skill_name ($scope)"
+        if verify_link "$target_path" "$source_path"; then
+          remove_link "$target_path"
+          log_success "Unlinked: $t/$current_skill_name ($scope)"
+        else
+          log_warn "Skip unmanaged target: $target_path"
+        fi
       fi
     done
   done
@@ -274,29 +300,64 @@ skills_install() {
   ensure_dir "$skills_dir"
   
   case "$source" in
-    http://*|https://*|git@*)
+    git+*|ssh://*|http://*|https://*|git@*)
       # GitHub/Git URL
       install_skill_from_git "$source"
-      ;;
-    @*|!*)
-      # npm package (starts with @ or !)
-      install_skill_from_npm "$source"
       ;;
     /*|./*|../*)
       # Local path
       install_skill_from_path "$source"
       ;;
-    *)
-      # Try as GitHub shorthand (user/repo)
+    @*/*)
+      # Scoped npm package
+      install_skill_from_npm "$source"
+      ;;
+    */*)
+      # GitHub shorthand (user/repo)
       install_skill_from_git "https://github.com/${source}.git"
       ;;
+    *)
+      # Unscoped npm package
+      install_skill_from_npm "$source"
+      ;;
   esac
+}
+
+install_skill_directory() {
+  local source_dir="$1"
+  local target_name="$2"
+  local skills_dir="${AIWS_DIR}/skills"
+  local target_path="${skills_dir}/${target_name}"
+  local stage_root
+  stage_root="$(mktemp -d)"
+  local stage_path="${stage_root}/${target_name}"
+
+  if ! cp -R "$source_dir" "$stage_path"; then
+    rm -rf "$stage_root"
+    log_error "Failed to stage skill: $target_name"
+    return 1
+  fi
+
+  if [ -e "$target_path" ] || [ -L "$target_path" ]; then
+    backup_existing_path "$target_path"
+  fi
+
+  if mv "$stage_path" "$target_path"; then
+    rm -rf "$stage_root"
+    log_success "Installed skill: $target_name"
+    return 0
+  fi
+
+  rm -rf "$stage_root"
+  log_error "Failed to install skill: $target_name"
+  return 1
 }
 
 # Install skill from Git repository
 install_skill_from_git() {
   local url="$1"
   local skills_dir="${AIWS_DIR}/skills"
+  url="${url#git+}"
   
   # Extract repo name for directory
   local repo_name
@@ -324,14 +385,12 @@ install_skill_from_git() {
         
         # Copy to our skills directory
         if [ "$skill_name" = "$(basename "$temp_dir")" ]; then
-          # SKILL.md is at root
-          cp -r "$skill_dir" "${skills_dir}/${repo_name}"
+          install_skill_directory "$skill_dir" "$repo_name"
         else
-          cp -r "$skill_dir" "${skills_dir}/${skill_name}"
+          install_skill_directory "$skill_dir" "$skill_name"
         fi
-        
+
         skill_found=1
-        log_success "Installed skill: $skill_name"
       fi
     done
     
@@ -349,6 +408,8 @@ install_skill_from_git() {
 install_skill_from_npm() {
   local package="$1"
   local skills_dir="${AIWS_DIR}/skills"
+  local package_name
+  package_name="$(basename "$package")"
   
   log_info "Installing from npm: $package"
   
@@ -370,8 +431,11 @@ install_skill_from_npm() {
           local skill_name
           skill_name="$(basename "$skill_dir")"
           
-          cp -r "$skill_dir" "${skills_dir}/${skill_name}"
-          log_success "Installed skill: $skill_name"
+          if [ "$skill_name" = "package" ]; then
+            install_skill_directory "$skill_dir" "$package_name"
+          else
+            install_skill_directory "$skill_dir" "$skill_name"
+          fi
         fi
       done
     fi
@@ -397,8 +461,7 @@ install_skill_from_path() {
     local skill_name
     skill_name="$(basename "$source_path")"
     
-    cp -r "$source_path" "${skills_dir}/${skill_name}"
-    log_success "Installed skill: $skill_name"
+    install_skill_directory "$source_path" "$skill_name"
   else
     log_error "No SKILL.md found in: $source_path"
   fi

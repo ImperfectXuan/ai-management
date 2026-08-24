@@ -1,5 +1,5 @@
 // electron/src/renderer/pages/skills.tsx
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { invoke } from '../api';
 import { IPC } from '../../shared/ipc';
 import type { Skill } from '../../core/skills';
@@ -7,6 +7,7 @@ import type { Skill } from '../../core/skills';
 export function SkillsPage({ repoId }: { repoId: string }) {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [sel, setSel] = useState<string | null>(null);
+  const [msg, setMsg] = useState('');
 
   const load = useCallback(async () => {
     setSkills(await invoke<Skill[]>(IPC.SkillsList, repoId));
@@ -15,13 +16,15 @@ export function SkillsPage({ repoId }: { repoId: string }) {
 
   const link = async (scope: 'global' | 'project') => {
     if (!sel) return;
-    await invoke(IPC.SkillsLink, { repoId, scope, tool: 'cursor' });
-    load();
+    await invoke(IPC.SkillsLink, { repoId, scope, tool: 'cursor', skillName: sel });
+    setMsg(`已链接 ${sel} 到 Cursor（${scope}）`);
+    await load();
   };
   const unlink = async () => {
     if (!sel) return;
-    await invoke(IPC.SkillsUnlink, { repoId, scope: 'project', tool: 'cursor' });
-    load();
+    await invoke(IPC.SkillsUnlink, { repoId, scope: 'project', tool: 'cursor', skillName: sel });
+    setMsg(`已从 Cursor 卸载 ${sel}（project）`);
+    await load();
   };
 
   const detail = skills.find((s) => s.name === sel);
@@ -41,6 +44,7 @@ export function SkillsPage({ repoId }: { repoId: string }) {
           <>
             <h2>{detail.name}</h2>
             <p className="muted">{detail.description}</p>
+            {msg ? <p className="muted">{msg}</p> : null}
             <table className="table">
               <thead><tr><th>工具</th><th>global</th><th>project</th></tr></thead>
               <tbody>

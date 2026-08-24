@@ -17,6 +17,14 @@ AIWS_LIB_DIR="${AIWS_SCRIPTS_DIR}/lib"
 # Tool names
 SUPPORTED_TOOLS="codex claude cursor trae"
 
+is_supported_tool() {
+  local tool="$1"
+  case " ${SUPPORTED_TOOLS} " in
+    *" ${tool} "*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # ============================================================================
 # Color Output
 # ============================================================================

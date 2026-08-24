@@ -339,13 +339,31 @@ cmd_skills() {
       ;;
     link)
       local scope="${1:-global}"
-      local tool="${2:-}"
-      skills_link "$scope" "$tool"
+      local tool=""
+      local skill_name=""
+      if [ -n "${3:-}" ]; then
+        tool="${2:-}"
+        skill_name="${3:-}"
+      elif is_supported_tool "${2:-}"; then
+        tool="${2:-}"
+      else
+        skill_name="${2:-}"
+      fi
+      skills_link "$scope" "$tool" "$skill_name"
       ;;
     unlink)
       local scope="${1:-global}"
-      local tool="${2:-}"
-      skills_unlink "$scope" "$tool"
+      local tool=""
+      local skill_name=""
+      if [ -n "${3:-}" ]; then
+        tool="${2:-}"
+        skill_name="${3:-}"
+      elif is_supported_tool "${2:-}"; then
+        tool="${2:-}"
+      else
+        skill_name="${2:-}"
+      fi
+      skills_unlink "$scope" "$tool" "$skill_name"
       ;;
     install)
       skills_install "$1"

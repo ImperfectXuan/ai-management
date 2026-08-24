@@ -7,8 +7,9 @@ const { aiwsJson, runAiws } = require('../lib/aiws');
 function Skills() {
   const [skills, setSkills] = useState([]);
   const [cursor, setCursor] = useState(0);
-  const [detail, setDetail] = useState(null);
+  const [selectedName, setSelectedName] = useState(null);
   const [msg, setMsg] = useState('');
+  const detail = selectedName ? skills.find((skill) => skill.name === selectedName) ?? null : null;
   const load = async () => {
     const r = await aiwsJson(['skills', 'list']);
     setSkills(r.data?.skills ?? []);
@@ -17,19 +18,19 @@ function Skills() {
 
   useInput(async (input, key) => {
     if (detail) {
-      if (input === 'q' || key.escape) { setDetail(null); setMsg(''); }
+      if (input === 'q' || key.escape) { setSelectedName(null); setMsg(''); }
       if (input === 'l') {
-        await runAiws(['skills', 'link', 'global']);
+        await runAiws(['skills', 'link', 'global', detail.name]);
         await load(); setMsg(`已链接 ${detail.name}（global）`);
       }
       if (input === 'u') {
-        await runAiws(['skills', 'unlink', 'global']);
+        await runAiws(['skills', 'unlink', 'global', detail.name]);
         await load(); setMsg(`已卸载 ${detail.name}（global）`);
       }
     } else {
       if (key.downArrow) setCursor((c) => Math.min(skills.length - 1, c + 1));
       if (key.upArrow) setCursor((c) => Math.max(0, c - 1));
-      if (input === '\r' && skills[cursor]) { setDetail(skills[cursor]); setMsg(''); }
+      if (input === '\r' && skills[cursor]) { setSelectedName(skills[cursor].name); setMsg(''); }
       if (input === 'r') await load();
     }
   });

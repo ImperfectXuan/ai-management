@@ -13,6 +13,42 @@ async function exists(p: string): Promise<boolean> {
   return fs.access(p).then(() => true).catch(() => false);
 }
 
+async function realpathOrNull(p: string): Promise<string | null> {
+  return fs.realpath(p).catch(() => null);
+}
+
+async function isManagedSkillTarget(target: string, source: string): Promise<boolean> {
+  if (!(await exists(target))) return false;
+  const [targetReal, sourceReal] = await Promise.all([realpathOrNull(target), realpathOrNull(source)]);
+  return targetReal !== null && targetReal === sourceReal;
+}
+
+async function nextBackupPath(target: string): Promise<string> {
+  let backupPath = `${target}.bak`;
+  if (!(await exists(backupPath))) return backupPath;
+  backupPath = `${target}.${new Date().toISOString().replace(/[:.]/g, '-')}.bak`;
+  return backupPath;
+}
+
+async function backupExistingTarget(target: string): Promise<void> {
+  const backupPath = await nextBackupPath(target);
+  await fs.rename(target, backupPath);
+}
+
+async function prepareSkillTarget(target: string, source: string): Promise<void> {
+  if (!(await exists(target))) return;
+  if (await isManagedSkillTarget(target, source)) {
+    await fs.rm(target, { recursive: true, force: true });
+    return;
+  }
+  await backupExistingTarget(target);
+}
+
+function getTargetSkillNames(dirs: import('node:fs').Dirent[], skillName?: string): string[] {
+  if (skillName) return [skillName];
+  return dirs.filter((d) => d.isDirectory()).map((d) => d.name);
+}
+
 export async function listSkills(root: string): Promise<Skill[]> {
   const aiwsDir = path.join(root, '.ai-workspace');
   const skillsDir = path.join(aiwsDir, 'skills');
@@ -39,42 +75,45 @@ export async function listSkills(root: string): Promise<Skill[]> {
   return out;
 }
 
-export async function linkSkills(root: string, scope: 'global' | 'project', tool?: string): Promise<{ count: number }> {
+export async function linkSkills(root: string, scope: 'global' | 'project', tool?: string, skillName?: string): Promise<{ count: number }> {
   const aiwsDir = path.join(root, '.ai-workspace');
   const skillsDir = path.join(aiwsDir, 'skills');
   const cfg = await loadConfig(aiwsDir);
   const tools = tool ? [tool] : cfg.tools;
   const dirs = await fs.readdir(skillsDir, { withFileTypes: true }).catch(() => [] as import('node:fs').Dirent[]);
+  const targetSkillNames = getTargetSkillNames(dirs, skillName);
   let count = 0;
   for (const t of tools) {
     const base = getToolSkillsPath(root, t, scope);
     if (!base) continue;
     await fs.mkdir(base, { recursive: true });
-    for (const d of dirs) {
-      if (!d.isDirectory() || !(await exists(path.join(skillsDir, d.name, 'SKILL.md')))) continue;
-      const target = path.join(base, d.name);
-      await fs.rm(target, { recursive: true, force: true });
-      await fs.symlink(path.join(skillsDir, d.name), target, 'dir');
+    for (const name of targetSkillNames) {
+      const source = path.join(skillsDir, name);
+      if (!(await exists(path.join(source, 'SKILL.md')))) continue;
+      const target = path.join(base, name);
+      await prepareSkillTarget(target, source);
+      await fs.symlink(source, target, 'dir');
       count++;
     }
   }
   return { count };
 }
 
-export async function unlinkSkills(root: string, scope: 'global' | 'project', tool?: string): Promise<{ count: number }> {
+export async function unlinkSkills(root: string, scope: 'global' | 'project', tool?: string, skillName?: string): Promise<{ count: number }> {
   const aiwsDir = path.join(root, '.ai-workspace');
   const skillsDir = path.join(aiwsDir, 'skills');
   const cfg = await loadConfig(aiwsDir);
   const tools = tool ? [tool] : cfg.tools;
   const dirs = await fs.readdir(skillsDir, { withFileTypes: true }).catch(() => [] as import('node:fs').Dirent[]);
-  const skillNames = dirs.filter((d) => d.isDirectory()).map((d) => d.name);
+  const skillNames = getTargetSkillNames(dirs, skillName);
   let count = 0;
   for (const t of tools) {
     const base = getToolSkillsPath(root, t, scope);
     if (!base) continue;
     for (const name of skillNames) {
+      const source = path.join(skillsDir, name);
       const target = path.join(base, name);
-      if (await exists(target)) {
+      if ((await exists(target)) && (await isManagedSkillTarget(target, source))) {
         await fs.rm(target, { recursive: true, force: true });
         count++;
       }

@@ -72,13 +72,13 @@ export function registerIpc() {
     const repo = await store.get(repoId);
     return skillsApi.listSkills(repo.path);
   });
-  handle(IPC.SkillsLink, async (args: { repoId: string; scope: 'global' | 'project'; tool?: string }) => {
+  handle(IPC.SkillsLink, async (args: { repoId: string; scope: 'global' | 'project'; tool?: string; skillName?: string }) => {
     const repo = await store.get(args.repoId);
-    return skillsApi.linkSkills(repo.path, args.scope, args.tool);
+    return skillsApi.linkSkills(repo.path, args.scope, args.tool, args.skillName);
   });
-  handle(IPC.SkillsUnlink, async (args: { repoId: string; scope: 'global' | 'project'; tool?: string }) => {
+  handle(IPC.SkillsUnlink, async (args: { repoId: string; scope: 'global' | 'project'; tool?: string; skillName?: string }) => {
     const repo = await store.get(args.repoId);
-    return skillsApi.unlinkSkills(repo.path, args.scope, args.tool);
+    return skillsApi.unlinkSkills(repo.path, args.scope, args.tool, args.skillName);
   });
 
   handle(IPC.SecretsList, async (repoId: string) => {

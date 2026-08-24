@@ -70,8 +70,9 @@ create_link() {
     return 1
   fi
   
-  # Remove existing target if present
-  remove_link "$target"
+  if ! prepare_link_target "$source" "$target"; then
+    return 1
+  fi
   
   local link_type
   link_type="$(get_link_type)"
@@ -87,6 +88,57 @@ create_link() {
       create_copy "$source" "$target"
       ;;
   esac
+}
+
+canonicalize_dir() {
+  local dir="$1"
+  if [ ! -d "$dir" ]; then
+    return 1
+  fi
+  (
+    cd "$dir" 2>/dev/null && pwd -P
+  )
+}
+
+next_backup_path() {
+  local target="$1"
+  local bak="${target}.bak"
+
+  if [ ! -e "$bak" ] && [ ! -L "$bak" ]; then
+    printf '%s\n' "$bak"
+    return 0
+  fi
+
+  printf '%s.%s.bak\n' "$target" "$(date +%Y%m%d-%H%M%S)"
+}
+
+backup_existing_path() {
+  local target="$1"
+
+  if [ ! -e "$target" ] && [ ! -L "$target" ]; then
+    return 0
+  fi
+
+  local bak
+  bak="$(next_backup_path "$target")"
+  mv "$target" "$bak"
+  log_warn "Backed up unmanaged path: $target -> $bak"
+}
+
+prepare_link_target() {
+  local source="$1"
+  local target="$2"
+
+  if [ ! -e "$target" ] && [ ! -L "$target" ]; then
+    return 0
+  fi
+
+  if verify_link "$target" "$source"; then
+    remove_link "$target"
+    return 0
+  fi
+
+  backup_existing_path "$target"
 }
 
 # Create symbolic link
@@ -255,14 +307,15 @@ verify_link() {
       fi
       return 1
       ;;
-    junction)
-      # Junctions are harder to verify; check if directory exists
-      [ -d "$target" ] && return 0
-      return 1
-      ;;
-    copy)
-      # Copies are always "valid" if they exist
-      [ -e "$target" ] && return 0
+    junction|copy)
+      if [ -d "$target" ] && [ -d "$expected_source" ]; then
+        local actual_dir expected_dir
+        actual_dir="$(canonicalize_dir "$target" 2>/dev/null || true)"
+        expected_dir="$(canonicalize_dir "$expected_source" 2>/dev/null || true)"
+        if [ -n "$actual_dir" ] && [ "$actual_dir" = "$expected_dir" ]; then
+          return 0
+        fi
+      fi
       return 1
       ;;
   esac
