@@ -6,7 +6,15 @@ import type { Rule } from '../../core/rules';
 import type { McpServer } from '../../core/mcp';
 import type { Skill } from '../../core/skills';
 
-const TOOLS = ['cursor', 'trae', 'claude', 'codex'];
+const TOOLS = ['cursor', 'trae', 'claude', 'codex'] as const;
+type Tool = typeof TOOLS[number];
+
+const TOOL_LABELS: Record<Tool, string> = {
+  cursor: 'Cursor',
+  trae: 'Trae',
+  claude: 'Claude',
+  codex: 'Codex',
+};
 
 export function DashboardPage({ repoId }: { repoId: string }) {
   const [rules, setRules] = useState<Rule[]>([]);
@@ -44,14 +52,22 @@ export function DashboardPage({ repoId }: { repoId: string }) {
     try { await invoke(IPC.SyncRun, { repoId }); } catch { setBusy(false); }
   };
 
+  // per-file 工具(cursor/trae)按各自 mapping 的 required 计数;单文件工具(claude/codex)显示"-"
+  const ruleCountFor = (t: Tool): number | string => {
+    if (t === 'cursor' || t === 'trae') {
+      return rules.filter((r) => r.requiredByTool[t]).length;
+    }
+    return '-';
+  };
+
   return (
     <div>
       <h2>仪表盘</h2>
       <div className="cards">
         {TOOLS.map((t) => (
           <div key={t} className="card">
-            <div className="card-title">{t}</div>
-            <div className="card-stat">规则: {rules.filter((r) => r.required).length}</div>
+            <div className="card-title">{TOOL_LABELS[t]}</div>
+            <div className="card-stat">规则: {ruleCountFor(t)}</div>
             <div className="card-stat">技能: {skills.length}</div>
             <div className="card-stat">MCP: {mcp.length}</div>
           </div>

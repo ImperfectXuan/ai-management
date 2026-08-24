@@ -2,10 +2,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { invoke } from '../api';
 import { IPC } from '../../shared/ipc';
-import type { Rule } from '../../core/rules';
+import { PER_FILE_TOOLS, type PerFileTool, type Rule } from '../../core/rules';
+
+const TOOL_LABELS: Record<PerFileTool, string> = {
+  cursor: 'Cursor',
+  trae: 'Trae',
+};
 
 export function RulesPage({ repoId }: { repoId: string }) {
   const [rules, setRules] = useState<Rule[]>([]);
+  const [tool, setTool] = useState<PerFileTool>('cursor');
   const [dirty, setDirty] = useState(false);
   const [msg, setMsg] = useState('');
 
@@ -15,26 +21,46 @@ export function RulesPage({ repoId }: { repoId: string }) {
   useEffect(() => { load(); }, [load]);
 
   const toggle = async (r: Rule) => {
-    await invoke(IPC.RulesSetRequired, { repoId, tool: 'cursor', id: r.id, domain: r.domain, value: !r.required });
+    const newValue = !r.requiredByTool[tool];
+    await invoke(IPC.RulesSetRequired, { repoId, tool, id: r.id, domain: r.domain, value: newValue });
     setDirty(true);
     load();
   };
 
   const sync = async () => {
-    await invoke(IPC.SyncRun, { repoId, tool: 'cursor' });
+    await invoke(IPC.SyncRun, { repoId, tool });
     setDirty(false);
-    setMsg('已同步 Cursor 规则');
+    setMsg(`已同步 ${TOOL_LABELS[tool]} 规则`);
     load();
   };
 
   return (
     <div>
       <h2>规则</h2>
+      <div className="row" style={{ marginBottom: 8, alignItems: 'center', gap: 8 }}>
+        <span className="muted">工具:</span>
+        <div style={{ display: 'inline-flex', gap: 4 }}>
+          {PER_FILE_TOOLS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTool(t)}
+              className={t === tool ? 'tab tab-active' : 'tab'}
+              type="button"
+            >
+              {TOOL_LABELS[t]}
+            </button>
+          ))}
+        </div>
+      </div>
       {msg && <div className="muted">{msg}</div>}
       {rules.map((r) => (
         <div key={r.id} className="rule-row">
           <label className="switch">
-            <input type="checkbox" checked={r.required} onChange={() => toggle(r)} />
+            <input
+              type="checkbox"
+              checked={r.requiredByTool[tool] ?? false}
+              onChange={() => toggle(r)}
+            />
             <span className="slider" />
           </label>
           <div>
@@ -45,7 +71,7 @@ export function RulesPage({ repoId }: { repoId: string }) {
       ))}
       {rules.length === 0 && <div className="muted">未找到规则（先确认仓库已初始化 AI Workspace）。</div>}
       <div className="row" style={{ marginTop: 12 }}>
-        <button onClick={sync} disabled={!dirty}>同步 Cursor 规则</button>
+        <button onClick={sync} disabled={!dirty}>同步 {TOOL_LABELS[tool]} 规则</button>
       </div>
     </div>
   );

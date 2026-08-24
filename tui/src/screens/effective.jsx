@@ -6,15 +6,16 @@ const path = require('path');
 const { Box, Text, useInput } = require('ink');
 const { getRoot } = require('../lib/aiws');
 
-const DIRS = {
-  Cursor: path.join(getRoot(), '.cursor', 'rules'),
-  Trae: path.join(getRoot(), '.trae', 'rules'),
-};
+// 懒求值:避免模块加载期就调 getRoot(),让测试可在 chdir 后无需 reload
+// M12 / D3 修复
+function toolDir(tool) {
+  return path.join(getRoot(), tool === 'Cursor' ? '.cursor' : '.trae', 'rules');
+}
 
 function Effective() {
   const [tool, setTool] = useState('Cursor');
   const [cursor, setCursor] = useState(0);
-  const dir = DIRS[tool];
+  const dir = toolDir(tool);
   const files = (() => {
     if (!fs.existsSync(dir)) return [];
     return fs.readdirSync(dir)
