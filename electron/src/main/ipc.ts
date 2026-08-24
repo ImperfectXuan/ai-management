@@ -10,6 +10,7 @@ import * as skillsApi from '../core/skills';
 import { syncRun } from '../core/sync';
 import { compareRuleToGenerated } from '../core/diff';
 import { runAiwsBridge } from '../core/vault-bridge';
+import { validateRulesSetRequiredArgs } from './rules-args';
 
 export const store = new WorkspaceStore(path.join(app.getPath('userData'), 'repos.json'));
 
@@ -48,7 +49,8 @@ export function registerIpc() {
     const repo = await store.get(repoId);
     return rulesApi.listRules(repo.path);
   });
-  handle(IPC.RulesSetRequired, async (args: { repoId: string; tool: string; id: string; domain: boolean; value: boolean }) => {
+  handle(IPC.RulesSetRequired, async (raw: unknown) => {
+    const args = validateRulesSetRequiredArgs(raw);
     const repo = await store.get(args.repoId);
     await rulesApi.setRuleRequired(repo.path, args.tool, args.id, args.domain, args.value);
   });

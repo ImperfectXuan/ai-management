@@ -5,6 +5,7 @@ export const ErrorCodes = {
   AiwsNotInstalled: 'AiwsNotInstalled',
   GitNotInstalled: 'GitNotInstalled',
   UnsupportedTool: 'UnsupportedTool',
+  InvalidArgument: 'InvalidArgument',
 } as const;
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
 
