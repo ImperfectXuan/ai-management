@@ -20,7 +20,7 @@
 - **MCP 同步引擎** — JSON ↔ TOML 双向转换；`scope` 字段驱动分发；`mcp.local.json` 本地覆盖；`${secret:XXX}` 占位符替换。
 - **Skills 同步引擎** — 跨平台 symlink（macOS/Linux symlink、Windows junction、复制回退）；从 Git/npm/本地路径安装。
 - **加密密钥保管库** — age 加密 + TOTP 2FA；按工具的权限控制（`permissions.yaml`）。
-- **双向同步** — `aiws import mcp` 从各工具反向导入 MCP 配置（含 TOML 解析）；`aiws import skills` 从各工具 Skills 目录导入技能。
+- **双向同步** — `aiws import mcp` 从各工具反向导入 MCP 配置（含 TOML 解析）；`aiws import skills` 从各工具 Skills 目录导入技能；`aiws import rules` 从工具文件反向导入未纳管规则（cursor/trae 逐条转换、claude/codex 整文件导入，自动登记 adapter mapping，managed/conflict 保护不覆盖 canonical）。
 - **工作区配置** — `workspace.json` 控制启用的工具、scope 默认值和模块开关。
 - **7 条规范核心规则** — 覆盖通用开发约定的 `00-core` 至 `06-error-handling`。
 - **6 条领域规则** — 从 `~/.ai-rules/*.mdc` 转换的 ASP.NET、Vue 3、WinForms、WPF、Karpathy 行为准则、全局工作流。
