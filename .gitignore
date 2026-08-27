@@ -1,5 +1,8 @@
 # AI Workspace
 
+# Blog drafts & discussion materials (local only, not tracked)
+docs/blog-ai-coding-workflow/
+
 # Generated files (regenerate with: aiws sync)
 AGENTS.md
 CLAUDE.md
