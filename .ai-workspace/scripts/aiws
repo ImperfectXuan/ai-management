@@ -56,8 +56,8 @@ ${BOLD}COMMANDS:${NC}
     ${GREEN}import${NC}      Import existing configs from tools into workspace
         mcp [--from <t>]   Import MCP servers from tools into mcp.json
         skills [--from <t>] Import skills from tools into workspace
-        rules [--from <t>]  Import rules (not yet implemented)
-        Options: --scope, --from, --dry-run, -y
+        rules [--from <t>]  Import unmanaged rules into rules/domains/
+        Options: --scope, --from, --as, --dry-run, -y
 
     ${GREEN}hooks${NC}       Manage the pre-commit drift guard
         install            Install the git pre-commit hook (idempotent)
@@ -476,11 +476,12 @@ cmd_import() {
       log_info "Import existing tool configurations into workspace:"
       printf "  ${GREEN}mcp${NC}     Import MCP servers from tools into mcp.json\n"
       printf "  ${GREEN}skills${NC}  Import skills from tools into .ai-workspace/skills/\n"
-      printf "  ${GREEN}rules${NC}   Import rules from tools (not yet implemented)\n"
+      printf "  ${GREEN}rules${NC}   Import unmanaged rules from tools into .ai-workspace/rules/domains/\n"
       echo ""
       log_info "Options:"
       printf "  ${CYAN}--from <tool>${NC}   Import from specific tool (codex|claude|cursor|trae)\n"
       printf "  ${CYAN}--scope <scope>${NC} Target scope (global|project)\n"
+      printf "  ${CYAN}--as <name>${NC}     Rule name for merged-file import (requires --from claude|codex)\n"
       printf "  ${CYAN}--dry-run${NC}      Preview without making changes\n"
       printf "  ${CYAN}--yes, -y${NC}      Skip confirmation prompt\n"
       echo ""
@@ -488,6 +489,8 @@ cmd_import() {
       printf "  aiws import skills --dry-run          # Preview skill discovery\n"
       printf "  aiws import skills --from claude      # Import skills from Claude\n"
       printf "  aiws import mcp --from codex --scope global  # Import Codex MCP\n"
+      printf "  aiws import rules --from cursor       # Import hand-written Cursor rules\n"
+      printf "  aiws import rules --from claude --as my-rules # Import CLAUDE.md as one rule\n"
       echo ""
       return 0
       ;;
@@ -498,12 +501,14 @@ cmd_import() {
   local scope_filter=""
   local dry_run=0
   local auto_yes=0
+  local as_name=""
 
   # Parse options
   while [ $# -gt 0 ]; do
     case "$1" in
       --from)  from_tool="$2"; shift 2 ;;
       --scope) scope_filter="$2"; shift 2 ;;
+      --as)    as_name="$2"; shift 2 ;;
       --dry-run) dry_run=1; shift ;;
       --yes|-y) auto_yes=1; shift ;;
       --help|-h)
@@ -540,22 +545,20 @@ cmd_import() {
       import_skills "$from_tool" "$scope_filter" "$dry_run" "$auto_yes"
       ;;
     rules)
-      log_info "Rules import is not yet implemented."
-      log_info "All rules are already managed via .ai-workspace/rules/."
-      log_info "To add new rules, place .md files in .ai-workspace/rules/ or .ai-workspace/rules/domains/"
-      log_info "and register them in the adapter mapping.yaml files."
+      . "${SCRIPT_DIR}/lib/import-rules.sh"
+      import_rules "$from_tool" "$scope_filter" "$dry_run" "$auto_yes" "$as_name"
       ;;
     help|"")
-      log_info "Usage: aiws import <mcp|skills|rules> [--from <tool>] [--scope <scope>] [--dry-run] [-y]"
+      log_info "Usage: aiws import <mcp|skills|rules> [--from <tool>] [--scope <scope>] [--as <name>] [--dry-run] [-y]"
       echo ""
       log_info "Subcommands:"
       printf "  ${GREEN}mcp${NC}     Import MCP servers from tools into mcp.json\n"
       printf "  ${GREEN}skills${NC}  Import skills from tools into .ai-workspace/skills/\n"
-      printf "  ${GREEN}rules${NC}   Import rules from tools (not yet implemented)\n"
+      printf "  ${GREEN}rules${NC}   Import unmanaged rules from tools into .ai-workspace/rules/domains/\n"
       ;;
     *)
       log_error "Unknown import target: $what"
-      log_info "Usage: aiws import <mcp|skills|rules> [--from <tool>] [--scope <scope>] [--dry-run] [-y]"
+      log_info "Usage: aiws import <mcp|skills|rules> [--from <tool>] [--scope <scope>] [--as <name>] [--dry-run] [-y]"
       exit 1
       ;;
   esac

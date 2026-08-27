@@ -191,6 +191,22 @@ get_tool_skills_path() {
   fi
 }
 
+# Get tool-specific rules location
+# cursor/trae 返回目录（per-rule 文件），claude/codex 返回单个拼接文件路径
+# 本项目只管理 project scope（global 规则路径未纳入体系）
+# Usage: get_tool_rules_path <tool>
+get_tool_rules_path() {
+  local tool="$1"
+
+  case "$tool" in
+    claude)  echo "${AIWS_ROOT}/CLAUDE.md" ;;
+    codex)   echo "${AIWS_ROOT}/AGENTS.md" ;;
+    cursor)  echo "${AIWS_ROOT}/.cursor/rules" ;;
+    trae)    echo "${AIWS_ROOT}/.trae/rules" ;;
+    *)       die "Unknown tool: $tool" ;;
+  esac
+}
+
 # ============================================================================
 # JSON Helpers (minimal, for shell-based parsing)
 # ============================================================================
