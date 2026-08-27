@@ -1,0 +1,28 @@
+#!/bin/sh
+# aiws-managed
+# Pre-commit hook installed by `aiws` — blocks commits while generated files
+# (CLAUDE.md / AGENTS.md / .cursor/rules / .trae/rules) have drifted from the
+# canonical layer (.ai-workspace/rules). Bypass once with: git commit --no-verify
+
+SCRIPT="$(git rev-parse --show-toplevel)/.ai-workspace/scripts/aiws"
+
+# 必须可执行才跑检查；不存在或无执行位一律放行（fail-open），
+# 否则 permission denied 会被误判为漂移而拦下无关提交
+if [ ! -x "$SCRIPT" ]; then
+  echo "[aiws] aiws script not executable at ${SCRIPT}; skipping drift check." >&2
+  exit 0
+fi
+
+# 只吞 stdout，保留 stderr——用户被拦时能看到具体哪些文件漂移
+"$SCRIPT" validate --drift-strict >/dev/null
+rc=$?
+
+if [ "$rc" -ne 0 ]; then
+  echo "" >&2
+  echo "[aiws] Commit blocked: generated files drifted from canonical rules." >&2
+  echo "[aiws] Fix: run 'aiws sync', then re-stage and commit." >&2
+  echo "[aiws] Bypass once with: git commit --no-verify" >&2
+  exit 1
+fi
+
+exit 0

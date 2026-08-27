@@ -59,6 +59,10 @@ ${BOLD}COMMANDS:${NC}
         rules [--from <t>]  Import rules (not yet implemented)
         Options: --scope, --from, --dry-run, -y
 
+    ${GREEN}hooks${NC}       Manage the pre-commit drift guard
+        install            Install the git pre-commit hook (idempotent)
+        uninstall          Remove the aiws-managed hook
+
 ${BOLD}OPTIONS:${NC}
     --tool <name>    Target specific tool (codex|claude|cursor|trae)
     --scope <scope>  Target specific scope (global|project)
@@ -132,6 +136,13 @@ EOF
   
   echo ""
   log_info "Workspace setup complete!"
+
+  # Auto-install pre-commit drift guard (skipped silently outside a git repo)
+  if git -C "$AIWS_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+    . "${SCRIPT_DIR}/lib/hooks.sh"
+    install_pre_commit_hook || true
+  fi
+
   echo ""
   log_info "Next steps:"
   printf "  1. Add rules to ${CYAN}%s/rules/00-core.md${NC}\n" "$AIWS_DIR"
@@ -275,6 +286,39 @@ $(cat "$rule_file")
   } > "$output_file"
 
   log_success "Generated: $output_file ($tool)"
+}
+
+# ============================================================================
+# Hooks Command
+# ============================================================================
+
+cmd_hooks() {
+  local action="${1:-install}"
+
+  . "${SCRIPT_DIR}/lib/hooks.sh"
+
+  case "$action" in
+    install)
+      install_pre_commit_hook
+      ;;
+    uninstall)
+      uninstall_pre_commit_hook
+      ;;
+    --help|-h|help)
+      echo "Usage: aiws hooks <install|uninstall>"
+      echo ""
+      echo "Manage the git pre-commit hook that blocks commits while"
+      echo "generated files have drifted from canonical rules."
+      echo ""
+      echo "Commands:"
+      echo "  install     Install the pre-commit hook (idempotent)"
+      echo "  uninstall   Remove the aiws-managed pre-commit hook"
+      ;;
+    *)
+      log_error "Unknown hooks action: $action"
+      exit 1
+      ;;
+  esac
 }
 
 # ============================================================================
@@ -575,6 +619,9 @@ main() {
       ;;
     import)
       cmd_import "$@"
+      ;;
+    hooks)
+      cmd_hooks "$@"
       ;;
     help|"")
       show_help
