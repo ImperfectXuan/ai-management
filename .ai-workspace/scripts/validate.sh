@@ -20,16 +20,21 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # ============================================================================
 
 STRICT_MODE=0
+# --drift-strict: 把生成文件漂移视为 error（pre-commit hook 用）。
+# 默认漂移只记 warning，避免未跑过 sync 的新环境被 validate 直接判死。
+DRIFT_STRICT=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --strict) STRICT_MODE=1; shift ;;
+    --drift-strict) DRIFT_STRICT=1; shift ;;
     --help|-h)
-      echo "Usage: validate.sh [--strict]"
+      echo "Usage: validate.sh [--strict] [--drift-strict]"
       echo ""
       echo "Options:"
-      echo "  --strict  Treat warnings as errors"
-      echo "  --help    Show this help message"
+      echo "  --strict        Treat warnings as errors"
+      echo "  --drift-strict  Treat generated-file drift as errors"
+      echo "  --help          Show this help message"
       exit 0
       ;;
     *) die "Unknown option: $1" ;;
@@ -416,6 +421,33 @@ validate_generated_files() {
 }
 
 # ============================================================================
+# Drift Validation (canonical rules vs generated files)
+# ============================================================================
+
+validate_drift() {
+  log_info "Checking rule drift..."
+
+  . "${SCRIPT_DIR}/lib/drift-check.sh"
+
+  # check_drift 返回码: 0 一致 | 1 漂移 | 2 环境错误
+  local rc=0
+  check_drift "" || rc=$?
+
+  if [ "$rc" -eq 0 ]; then
+    return 0
+  elif [ "$rc" -eq 2 ]; then
+    warn "Drift check could not run (missing rules or sandbox error)"
+    return 0
+  fi
+
+  if [ "$DRIFT_STRICT" = "1" ]; then
+    error "Generated files drifted from canonical rules (run: aiws sync)"
+  else
+    warn "Generated files drifted from canonical rules (run: aiws sync)"
+  fi
+}
+
+# ============================================================================
 # Main
 # ============================================================================
 
@@ -436,6 +468,7 @@ main() {
   validate_skills
   validate_secrets
   validate_generated_files
+  validate_drift
   
   # Summary
   echo "============================================"
