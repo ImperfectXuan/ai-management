@@ -1,0 +1,54 @@
+# aiws-managed
+# 由 `aiws ci install` 生成；重复安装会覆盖本文件，卸载请运行 `aiws ci uninstall`。
+# push 触发（仅 .ai-workspace/** 变更）→ validate → 同步规则 → 回写版本化文件与生成产物。
+name: aiws-sync
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.ai-workspace/**'
+  workflow_dispatch:
+
+# 同分支串行执行，避免两次 push 的运行交错写版本化文件
+concurrency:
+  group: aiws-sync-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate
+        run: |
+          # 只有生成文件被 git 跟踪的仓库才做严格漂移检查；
+          # 否则新 checkout 缺生成文件，drift-check 会把全部规则误报为 missing
+          if [ -n "$(git ls-files CLAUDE.md AGENTS.md .cursor/rules .trae/rules)" ]; then
+            .ai-workspace/scripts/aiws validate --drift-strict
+          else
+            .ai-workspace/scripts/aiws validate
+          fi
+
+      # mcp 需要 vault 解 ${secret:} 占位符，skills 会在真实目录产生链接副作用，CI 一律不碰
+      - name: Sync rules
+        run: .ai-workspace/scripts/aiws sync --only rules
+
+      - name: Commit and push
+        run: |
+          git config user.name "aiws-bot"
+          git config user.email "aiws-bot@users.noreply.github.com"
+          # 生成文件被 .gitignore 忽略的仓库这里天然无事可做（尊重仓库策略，不 force-add）
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "chore: aiws 自动同步生成文件 [skip ci]"
+            git push
+          else
+            echo "No changes to commit"
+          fi

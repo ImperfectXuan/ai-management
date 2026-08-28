@@ -67,6 +67,10 @@ ${BOLD}COMMANDS:${NC}
         install            Install the git pre-commit hook (idempotent)
         uninstall          Remove the aiws-managed hook
 
+    ${GREEN}ci${NC}          Manage the GitHub Actions auto-sync workflow
+        install            Install .github/workflows/aiws-sync.yml (idempotent)
+        uninstall          Remove the aiws-managed workflow
+
 ${BOLD}OPTIONS:${NC}
     --tool <name>    Target specific tool (codex|claude|cursor|trae)
     --scope <scope>  Target specific scope (global|project)
@@ -80,6 +84,7 @@ ${BOLD}EXAMPLES:${NC}
     aiws sync --only rules        # Sync rules only (what CI auto-sync runs)
     aiws rules status             # Rules changed since last sync
     aiws rules history vue3       # Git history of one rule
+    aiws ci install               # Install push-triggered auto-sync workflow
     aiws mcp add github npx       # Add GitHub MCP server
     aiws skills link global       # Link skills globally
     aiws import skills --dry-run  # Preview skill import
@@ -359,6 +364,38 @@ cmd_hooks() {
       ;;
     *)
       log_error "Unknown hooks action: $action"
+      exit 1
+      ;;
+  esac
+}
+
+# ============================================================================
+# CI Commands
+# ============================================================================
+
+cmd_ci() {
+  . "${SCRIPT_DIR}/lib/ci.sh"
+
+  local action="${1:-install}"
+
+  case "$action" in
+    install)
+      install_ci_workflow
+      ;;
+    uninstall)
+      uninstall_ci_workflow
+      ;;
+    --help|-h|help)
+      echo "Usage: aiws ci <install|uninstall>"
+      echo ""
+      echo "Manage the GitHub Actions workflow that syncs generated files on push."
+      echo ""
+      echo "Commands:"
+      echo "  install     Install .github/workflows/aiws-sync.yml (managed files are regenerated)"
+      echo "  uninstall   Remove the aiws-managed workflow"
+      ;;
+    *)
+      log_error "Unknown ci action: $action"
       exit 1
       ;;
   esac
@@ -707,6 +744,9 @@ main() {
       ;;
     hooks)
       cmd_hooks "$@"
+      ;;
+    ci)
+      cmd_ci "$@"
       ;;
     help|"")
       show_help
