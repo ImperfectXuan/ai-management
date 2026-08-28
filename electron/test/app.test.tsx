@@ -9,7 +9,8 @@ import { render, cleanup, within } from '@testing-library/react';
 const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>');
 (globalThis as any).window = dom.window;
 (globalThis as any).document = dom.window.document;
-(globalThis as any).navigator = dom.window.navigator;
+// Node >=21 的 globalThis.navigator 是只读 getter，直接赋值会抛 TypeError
+Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true });
 
 import { App } from '../src/renderer/App';
 
