@@ -2,46 +2,26 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { loadConfig, getToolSkillsPath } from './config';
+import {
+  type LinkState,
+  classifyLinkState,
+  prepareDirLinkTarget,
+  createDirLink,
+  removeDirLink,
+  isManagedLinkTarget,
+} from './links';
+
+export type SkillLinkState = LinkState;
 
 export interface Skill {
   name: string;
   description: string;
-  linkStatus: Record<string, { global: boolean; project: boolean }>;
+  // 每个工具的链接三态：managed（已链接）/ conflict（同名非管理目标）/ missing（未链接）
+  linkStatus: Record<string, { global: SkillLinkState; project: SkillLinkState }>;
 }
 
 async function exists(p: string): Promise<boolean> {
   return fs.access(p).then(() => true).catch(() => false);
-}
-
-async function realpathOrNull(p: string): Promise<string | null> {
-  return fs.realpath(p).catch(() => null);
-}
-
-async function isManagedSkillTarget(target: string, source: string): Promise<boolean> {
-  if (!(await exists(target))) return false;
-  const [targetReal, sourceReal] = await Promise.all([realpathOrNull(target), realpathOrNull(source)]);
-  return targetReal !== null && targetReal === sourceReal;
-}
-
-async function nextBackupPath(target: string): Promise<string> {
-  let backupPath = `${target}.bak`;
-  if (!(await exists(backupPath))) return backupPath;
-  backupPath = `${target}.${new Date().toISOString().replace(/[:.]/g, '-')}.bak`;
-  return backupPath;
-}
-
-async function backupExistingTarget(target: string): Promise<void> {
-  const backupPath = await nextBackupPath(target);
-  await fs.rename(target, backupPath);
-}
-
-async function prepareSkillTarget(target: string, source: string): Promise<void> {
-  if (!(await exists(target))) return;
-  if (await isManagedSkillTarget(target, source)) {
-    await fs.rm(target, { recursive: true, force: true });
-    return;
-  }
-  await backupExistingTarget(target);
 }
 
 function getTargetSkillNames(dirs: import('node:fs').Dirent[], skillName?: string): string[] {
@@ -61,13 +41,14 @@ export async function listSkills(root: string): Promise<Skill[]> {
     if (!(await exists(skillMd))) continue;
     const content = await fs.readFile(skillMd, 'utf8');
     const description = content.match(/^description:\s*(.+)$/m)?.[1]?.trim() ?? '';
-    const linkStatus: Record<string, { global: boolean; project: boolean }> = {};
+    const linkStatus: Record<string, { global: SkillLinkState; project: SkillLinkState }> = {};
     for (const tool of cfg.tools) {
       const g = getToolSkillsPath(root, tool, 'global');
       const p = getToolSkillsPath(root, tool, 'project');
+      const sourceDir = path.join(skillsDir, d.name);
       linkStatus[tool] = {
-        global: g ? await exists(path.join(g, d.name)) : false,
-        project: p ? await exists(path.join(p, d.name)) : false,
+        global: g ? await classifyLinkState(path.join(g, d.name), sourceDir) : 'missing',
+        project: p ? await classifyLinkState(path.join(p, d.name), sourceDir) : 'missing',
       };
     }
     out.push({ name: d.name, description, linkStatus });
@@ -91,8 +72,8 @@ export async function linkSkills(root: string, scope: 'global' | 'project', tool
       const source = path.join(skillsDir, name);
       if (!(await exists(path.join(source, 'SKILL.md')))) continue;
       const target = path.join(base, name);
-      await prepareSkillTarget(target, source);
-      await fs.symlink(source, target, 'dir');
+      await prepareDirLinkTarget(source, target);
+      await createDirLink(source, target);
       count++;
     }
   }
@@ -113,8 +94,8 @@ export async function unlinkSkills(root: string, scope: 'global' | 'project', to
     for (const name of skillNames) {
       const source = path.join(skillsDir, name);
       const target = path.join(base, name);
-      if ((await exists(target)) && (await isManagedSkillTarget(target, source))) {
-        await fs.rm(target, { recursive: true, force: true });
+      if ((await exists(target)) && (await isManagedLinkTarget(target, source))) {
+        await removeDirLink(target);
         count++;
       }
     }

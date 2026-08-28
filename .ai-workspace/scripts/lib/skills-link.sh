@@ -119,6 +119,29 @@ sync_skills_for_tool() {
 }
 
 # ============================================================================
+# Link State Classification (managed / conflict / missing)
+# ============================================================================
+
+# 判定目标与源的关系：
+#   managed  - 链接存在且真实指向 workspace 技能源目录（verify_link 通过）
+#   conflict - 目标存在但不受 AIWS 管理（如用户手工放置的同名目录）
+#   missing  - 目标不存在
+classify_skill_target() {
+  local target="$1"
+  local source="$2"
+
+  if [ ! -e "$target" ] && [ ! -L "$target" ]; then
+    printf 'missing'
+    return 0
+  fi
+  if verify_link "$target" "$source"; then
+    printf 'managed'
+  else
+    printf 'conflict'
+  fi
+}
+
+# ============================================================================
 # Skills Management Functions (for CLI)
 # ============================================================================
 
@@ -216,15 +239,17 @@ skills_list() {
       first=0
       printf '{"name":"%s","description":"%s","link_status":{' "$skill_name" "$desc"
       local t_first=1
+      local source_abs
+      source_abs="$(cd "${AIWS_DIR}/skills/${skill_name}" && pwd)"
       for tool in $tools; do
         local g p gs ps
         g="$(get_tool_skills_path "$tool" "global")/${skill_name}"
         p="$(get_tool_skills_path "$tool" "project")/${skill_name}"
-        [ -e "$g" ] && gs="true" || gs="false"
-        [ -e "$p" ] && ps="true" || ps="false"
+        gs="$(classify_skill_target "$g" "$source_abs")"
+        ps="$(classify_skill_target "$p" "$source_abs")"
         [ "$t_first" = "1" ] || printf ','
         t_first=0
-        printf '"%s":{"global":%s,"project":%s}' "$tool" "$gs" "$ps"
+        printf '"%s":{"global":"%s","project":"%s"}' "$tool" "$gs" "$ps"
       done
       printf '}}'
     done
@@ -257,25 +282,15 @@ skills_list() {
     fi
     echo ""
     
-    # Show sync status for each tool
+    # Show sync status for each tool (managed / conflict / missing 三态)
+    local source_abs
+    source_abs="$(cd "$skill_dir" && pwd)"
     for tool in $tools; do
-      local global_path
-      global_path="$(get_tool_skills_path "$tool" "global")/${skill_name}"
-      local project_path
-      project_path="$(get_tool_skills_path "$tool" "project")/${skill_name}"
-      
-      local global_status="✗"
-      local project_status="✗"
-      
-      if verify_link "$global_path" "$(cd "$skill_dir" && pwd)" 2>/dev/null || [ -e "$global_path" ]; then
-        global_status="✓"
-      fi
-      
-      if verify_link "$project_path" "$(cd "$skill_dir" && pwd)" 2>/dev/null || [ -e "$project_path" ]; then
-        project_status="✓"
-      fi
-      
-      printf "    %s: global=%s project=%s\n" "$tool" "$global_status" "$project_status"
+      local global_state project_state
+      global_state="$(classify_skill_target "$(get_tool_skills_path "$tool" "global")/${skill_name}" "$source_abs")"
+      project_state="$(classify_skill_target "$(get_tool_skills_path "$tool" "project")/${skill_name}" "$source_abs")"
+
+      printf "    %s: global=%s project=%s\n" "$tool" "$global_state" "$project_state"
     done
     echo ""
   done
