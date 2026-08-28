@@ -76,7 +76,7 @@ AI Workspace 是嵌入项目仓库的基础设施层，为 **规则、约定、�
 
 - `import mcp`：从工具解析 JSON/TOML → 合并进 `mcp.json`（同名去重、备份）
 - `import skills`：从工具 skills 目录复制 → 已管理 symlink / 同名跳过
-- `import rules`：**预留未实现**（需反向拆分拼接文件）
+- `import rules`：反向导入未纳管规则（cursor/trae 逐条转换、claude/codex 整文件，自动登记 mapping）
 
 ## 6. CLI 命令体系
 
@@ -84,13 +84,15 @@ AI Workspace 是嵌入项目仓库的基础设施层，为 **规则、约定、�
 
 ```
 aiws setup                  # 初始化工作区 + 可选 vault
-aiws sync [--tool T] [--scope S]   # 正向同步（规则 + MCP + 技能）
+aiws sync [--tool T] [--scope S] [--only rules|mcp|skills]   # 正向同步（--only 限定模块）
 aiws validate               # 校验工作区结构与配置
-aiws import mcp|skills|rules        # 反向导入（rules 预留）
+aiws import mcp|skills|rules        # 反向导入
 
 aiws mcp     list|add|remove|show
 aiws skills  list|link|unlink|install
 aiws secrets set|list|remove|audit
+aiws rules  status|history <id>     # 规则版本化：变更状态 / 单条规则 git 历史
+aiws ci     install|uninstall       # GitHub Actions 推送自动同步工作流
 ```
 
 ## 7. 三个交付物
@@ -191,6 +193,16 @@ description: 结构化构思和设计探索
 
 # 使用场景 / 执行指令 / 反模式
 ```
+
+### 规则版本化（`rules/.manifest.sha256` 与 `rules/CHANGELOG.md`）
+
+```
+<64位sha256>  <相对 .ai-workspace/ 的路径>
+```
+
+- `.manifest.sha256`：sha256sum 兼容纯文本快照（零 jq 依赖，可 `shasum -a 256 -c` 校验）。sync 成功消费规则层后原子替换；**无变化零写**（CI auto-sync 不回环的保证）。
+- `rules/CHANGELOG.md`：aiws 自动维护的追加式变更日志（`modified/added/removed` + 8 位哈希对）。非规范规则，同步与校验流程均跳过。
+- `aiws rules status` 对照 manifest 报告自上次同步以来的变更（rc 0 一致 / 1 有差异 / 2 环境错误）。
 
 ## 10. 设计哲学（摘要）
 

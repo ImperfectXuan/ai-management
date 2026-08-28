@@ -27,10 +27,18 @@
 - **设计文档** — Phase 1 多工具、Skills DSL 和记忆系统的设计规格（中文）。
 - **可视化 TUI（`tui/`）** — Ink + React 终端界面，六页（仪表盘 / 规则 / MCP / 技能 / 密钥 / 生效规则），薄壳调用 `aiws` CLI；`aiws --json` 结构化输出支撑各页。
 - **Desktop 独立 macOS 应用（`electron/`）** — Electron + React + TypeScript 管理应用。core 层纯 TS 重写（规则 / MCP / 技能 / 同步 / 行级 diff / 仓库 / 配置 / 错误模型），renderer → main（IPC）→ core 三层架构，core 可脱离 GUI 直测（32 用例）。多仓库管理、仪表盘一键同步（可取消 + 进度 + 系统通知）、规则装载开关、MCP 增删、技能链接/卸载、密钥只读审计、规范 vs 生成差异对比、托盘快捷操作、dmg 打包（arm64）。
+- **CI/CD 推送自动同步** — `aiws ci install` 生成 GitHub Actions 工作流（`.github/workflows/aiws-sync.yml`）：push 变更 `.ai-workspace/**` 时 validate → `sync --only rules` → 自动提交（bot 身份 + `[skip ci]` 防回环 + concurrency 串行）。
+- **规则版本化与变更追踪** — sync 维护 sha256 快照（`rules/.manifest.sha256`，sha256sum 兼容纯文本）与追加式变更日志（`rules/CHANGELOG.md`），无变化零写；`aiws rules status` 报告自上次同步以来的规则变更（补齐 claude/codex 单文件模式的规则级追踪），`aiws rules history <id>` 封装 `git log --follow`。
 
 ### Changed
 
 - CLI 从分散的 `sync.sh` / `validate.sh` 升级为统一 `aiws` 命令，包含 sync / validate / mcp / skills / secrets / import 子命令。
+- `aiws sync` 新增 `--only rules|mcp|skills` 模块过滤（CI 仅同步规则：mcp 需要 vault、skills 有链接副作用）。
+- 模块开关 `is_module_enabled` 支持点号嵌套键（如 `rules.versioning.enabled`），顶层键行为不变。
+
+### Fixed
+
+- `mcp.json` 非法时的错误函数名（`error` 不存在，set -e 下会崩溃）改为 `log_error`。
 
 ### Deprecated
 

@@ -134,10 +134,14 @@ AI Workspace 支持**双向**操作：
 aiws setup                        # 初始化工作区
 aiws sync                         # 同步所有配置到工具
 aiws sync --tool claude           # 仅同步到 Claude
+aiws sync --only rules            # 仅同步规则（CI 自动同步所用）
 aiws validate                     # 校验工作区结构
 
 # 规则管理
 #   （直接编辑 .ai-workspace/rules/*.md，然后 sync）
+aiws rules status                 # 自上次同步以来变更的规则
+aiws rules history <id>           # 单条规则的 git 历史
+aiws ci install                   # 安装 GitHub Actions 推送自动同步
 
 # MCP 管理
 aiws mcp list                     # 列出 MCP 服务器

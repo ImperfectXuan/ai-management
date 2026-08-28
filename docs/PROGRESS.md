@@ -32,7 +32,7 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 | Phase 1 | 增强：ADR 记忆系统、项目上下文摘要、pre-commit 集成等 | 🔶 进行中 |
 | Phase 1.5 | 可视化 TUI（Ink，六页） | ✅ 完成（增强项延后，见 §6） |
 | Phase 1.6 | Desktop 独立 macOS 应用（Electron） | ✅ 完成 |
-| Phase 2 | 自动化与生态：CI/CD 自动同步、规则版本化 | ⬜ 未开始 |
+| Phase 2 | 自动化与生态：CI/CD 自动同步、规则版本化 | ✅ 完成（两项核心；模板提取/脚手架见 §6 P3） |
 | Phase 3 | 生态：精选规则集、社区模板、市场 | ⬜ 未开始 |
 
 ---
@@ -75,6 +75,7 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 
 | 完成时间 | 内容 | commit |
 |---|---|---|
+| 2026-08-28 | Phase 2 两项核心：CI/CD 推送自动同步（`aiws ci` 工作流安装器 + `sync --only`）与规则版本化（sha256 manifest + 自动 CHANGELOG + `rules status/history`） | `02dbe18` `1df1b1e` `85e8d0b` `3cd1d61` |
 | 2026-08-27 | `aiws import rules` 反向导入引擎落地（cursor/trae 逐条转换、claude/codex 整文件导入、mapping 幂等登记、25 个测试） | `54d826b` |
 | 2026-08-28 | skills 域 B/C 阶段收尾：TUI/Desktop 补 tool+scope 交互、linkStatus 三态、公共链接层 links.ts（Windows junction/copy 回退）、skills.enabled 开关接通 sync、三端回归测试补齐（shell 9 + electron 61 + tui 19） | `5c3c26f` `095298b` `8bfcce4` `f149270` |
 | 2026-08-26 | pre-commit 钩子管理与 setup 自动安装 | `5bb98bb` |
@@ -100,10 +101,10 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 - [ ] GitHub Copilot 适配器
 - [ ] 按 tools 字段过滤规则
 - [ ] Phase 1.5 TUI 延后项：界面内编辑规则、validate --json 结构化输出、secrets 写操作、MCP 完整表单、细粒度 skill 链接
-- [ ] CI/CD 推送时自动同步
+- ~~CI/CD 推送时自动同步~~ ✅ 2026-08-28 完成（`aiws ci install`）
 
 ### P3 · 锦上添花
-- Phase 2/3 其余项（脚手架单命令初始化、精选规则集、社区模板）
+- Phase 2/3 其余项（跨项目模板提取、脚手架单命令初始化、精选规则集、社区模板）
 
 ---
 
@@ -113,6 +114,9 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 - **merge-file 导入的 required 语义**：claude/codex 整文件导入一律登记 `required: false`（合并文件没有 alwaysApply 语义），需要常驻装载的工具要手工改 mapping。
 - **global scope 导入不做**：各工具全局规则路径未纳入体系，`--scope global` 显式报错拒绝（fail-fast 设计，非遗漏）。
 - **跨平台 link 策略漂移风险**：CLI（shell）与 Desktop（TS）各自实现了 symlink/junction 逻辑，未经公共层约束（对应 §4 的 B3 项）。
+- **CI 自动提交在本仓库为部分 no-op**：生成文件被 `.gitignore` 忽略（尊重仓库策略，workflow 不 force-add），CI 提交实际入库的是 manifest/CHANGELOG 等版本化文件；对提交生成文件的仓库才会完整回写生成产物。
+- **规则哈希按字节计算**：仓库无 `.gitattributes` 换行归一策略，CRLF/换行符差异会记为一次规则变更。
+- **manifest 为规范层语义**：部分同步（`--tool X`）同样推进 manifest 快照——快照与工具无关，特判会引入状态分裂。
 
 ---
 
@@ -120,4 +124,5 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 
 | 日期 | 变更 |
 |---|---|
+| 2026-08-28 | Phase 2 两项核心落地：`aiws ci` 工作流安装器（GitHub Actions push 自动同步）、`sync --only` 模块过滤、规则版本化引擎（manifest/CHANGELOG/status/history）；shell 新增 26 用例全绿，三套既有套件回归通过；顺手修复 mcp-sync 错误函数名 |
 | 2026-08-27 | 初版建立：整合 ROADMAP、rules/skills 两域评审结论、近期五次提交与 skills 修复计划实测状态 |
