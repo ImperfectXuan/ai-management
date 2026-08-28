@@ -110,7 +110,7 @@ rules_versioning_append_log() {
   printf '%s\n' "$diff_out" | awk '{ printf "- %s: %s (%s → %s)\n", $1, $2, $3, $4 }' >> "$changelog"
   printf '\n' >> "$changelog"
   mv "$tmp_new" "$manifest"
-  log_success "记录规则变更 $(printf '%s\n' "$diff_out" | grep -c .) 条 → rules/CHANGELOG.md"
+  log_success "记录规则变更 $(printf '%s\n' "$diff_out" | grep -c . || true) 条 → rules/CHANGELOG.md"
 }
 
 # sync 后落检查点。环境问题只 warn 不阻断 sync 主职（版本化是附属品）
@@ -162,7 +162,8 @@ rules_status() {
 
   local diff_out count
   diff_out="$(rules_manifest_diff "$manifest" "$tmp_new" | LC_ALL=C sort)"
-  count="$(printf '%s\n' "$diff_out" | grep -c .)"
+  # grep -c 在计数为 0 时以 rc 1 退出，set -e 下会中断脚本（validate.sh 同款防御）
+  count="$(printf '%s\n' "$diff_out" | grep -c . || true)"
   rm -f "$tmp_new"
 
   if [ "$count" -eq 0 ]; then

@@ -53,6 +53,10 @@ ${BOLD}COMMANDS:${NC}
         remove <key>       Remove a secret
         audit              Show which tools use which secrets
 
+    ${GREEN}rules${NC}       Rule versioning and change tracking
+        status             Show rules changed since last sync
+        history <id>       Show git history for a rule
+
     ${GREEN}import${NC}      Import existing configs from tools into workspace
         mcp [--from <t>]   Import MCP servers from tools into mcp.json
         skills [--from <t>] Import skills from tools into workspace
@@ -74,6 +78,8 @@ ${BOLD}EXAMPLES:${NC}
     aiws sync                     # Sync everything
     aiws sync --tool codex        # Sync only for Codex
     aiws sync --only rules        # Sync rules only (what CI auto-sync runs)
+    aiws rules status             # Rules changed since last sync
+    aiws rules history vue3       # Git history of one rule
     aiws mcp add github npx       # Add GitHub MCP server
     aiws skills link global       # Link skills globally
     aiws import skills --dry-run  # Preview skill import
@@ -458,6 +464,42 @@ cmd_skills() {
 }
 
 # ============================================================================
+# Rules Commands
+# ============================================================================
+
+cmd_rules() {
+  . "${SCRIPT_DIR}/lib/rules-versioning.sh"
+
+  local subcmd="${1:-status}"
+  shift || true
+
+  case "$subcmd" in
+    status)
+      rules_status
+      ;;
+    history)
+      rules_history "${1:-}"
+      ;;
+    --help|-h|help)
+      echo "Usage: aiws rules <status|history <id>>"
+      echo ""
+      echo "Rule versioning and change tracking."
+      echo ""
+      echo "Commands:"
+      echo "  status         Show rules changed since the last sync (vs manifest)"
+      echo "  history <id>   Show git history for a rule (id or rules/ relative path)"
+      echo ""
+      echo "Exit codes for status: 0 clean, 1 changed, 2 environment error"
+      ;;
+    *)
+      log_error "Unknown rules subcommand: $subcmd"
+      log_info "Available: status, history"
+      exit 1
+      ;;
+  esac
+}
+
+# ============================================================================
 # Secrets Commands
 # ============================================================================
 
@@ -653,6 +695,9 @@ main() {
       ;;
     skills)
       cmd_skills "$@"
+      ;;
+    rules)
+      cmd_rules "$@"
       ;;
     secrets)
       cmd_secrets "$@"
