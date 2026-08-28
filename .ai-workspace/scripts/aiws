@@ -31,7 +31,7 @@ ${BOLD}USAGE:${NC}
 
 ${BOLD}COMMANDS:${NC}
     ${GREEN}setup${NC}       Initialize workspace structure and secrets vault
-    ${GREEN}sync${NC}        Sync rules, MCP, and skills to all AI tools
+    ${GREEN}sync${NC}        Sync rules, MCP, and skills (--only rules|mcp|skills to limit)
     ${GREEN}validate${NC}    Validate workspace structure and configurations
     ${GREEN}import${NC}      Import existing MCP/skills from tools into workspace
 
@@ -73,6 +73,7 @@ ${BOLD}EXAMPLES:${NC}
     aiws setup                    # Initialize workspace
     aiws sync                     # Sync everything
     aiws sync --tool codex        # Sync only for Codex
+    aiws sync --only rules        # Sync rules only (what CI auto-sync runs)
     aiws mcp add github npx       # Add GitHub MCP server
     aiws skills link global       # Link skills globally
     aiws import skills --dry-run  # Preview skill import
@@ -173,24 +174,37 @@ EOF
 cmd_sync() {
   local target_tool=""
   local target_scope=""
-  
+  SYNC_ONLY=""
+
   while [ $# -gt 0 ]; do
     case "$1" in
       --tool)  target_tool="$2"; shift 2 ;;
       --scope) target_scope="$2"; shift 2 ;;
+      --only)  SYNC_ONLY="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
-  
+
+  # fail-fast：非法 --only 直接拒绝，静默忽略会让人误以为模块已被同步
+  case "$SYNC_ONLY" in
+    ""|rules|mcp|skills) ;;
+    *)
+      log_error "Invalid --only value: ${SYNC_ONLY} (expected: rules|mcp|skills)"
+      exit 1
+      ;;
+  esac
+
   log_info "AI Workspace sync v${AIWS_VERSION}"
   echo ""
-  
+
   # Sync rules
-  log_info "Syncing rules..."
-  sync_rules "$target_tool" "$target_scope"
+  if sync_should_run rules; then
+    log_info "Syncing rules..."
+    sync_rules "$target_tool" "$target_scope"
+  fi
 
   # Sync MCP
-  if [ -f "${AIWS_DIR}/mcp/mcp.json" ]; then
+  if [ -f "${AIWS_DIR}/mcp/mcp.json" ] && sync_should_run mcp; then
     echo ""
     # Load vault.sh for secret replacement and permission checks
     if [ -f "${SCRIPT_DIR}/lib/vault.sh" ]; then
@@ -199,9 +213,9 @@ cmd_sync() {
     . "${SCRIPT_DIR}/lib/mcp-sync.sh"
     sync_mcp "$target_scope" "$target_tool"
   fi
-  
+
   # Sync skills（workspace.json skills.enabled=false 时显式跳过并输出原因）
-  if [ -d "${AIWS_DIR}/skills" ]; then
+  if [ -d "${AIWS_DIR}/skills" ] && sync_should_run skills; then
     if is_module_enabled "skills"; then
       echo ""
       . "${SCRIPT_DIR}/lib/platform.sh"
@@ -212,9 +226,16 @@ cmd_sync() {
       log_info "Skills module disabled (config/workspace.json skills.enabled=false). Skipping skills sync."
     fi
   fi
-  
+
   echo ""
   log_success "Sync complete!"
+}
+
+# --only 过滤谓词：SYNC_ONLY 为空时放行全部模块。
+# CI 自动同步只跑 rules（mcp 需要 vault 解 ${secret:} 占位符、skills 会在
+# 真实目录产生链接副作用），全量 sync 仍保持原有三模块行为。
+sync_should_run() {
+  [ -z "${SYNC_ONLY:-}" ] || [ "$SYNC_ONLY" = "$1" ]
 }
 
 # Sync rules to tool-native files
