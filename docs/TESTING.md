@@ -58,7 +58,10 @@ cd "$TMP" && git init         # 初始化为 git 仓库
 
 ```bash
 cd electron && npm test     # 桌面应用：core 单测 + renderer 冒烟（node:test + tsx）
-cd tui && npm test          # TUI：node:test（含 aiws/json/screens）
+cd tui && npm test          # TUI：node:test（含 aiws/json/rules/skills/screens）
+sh .ai-workspace/scripts/test/test-skills-link.sh    # skills 链接/三态/开关（沙盒）
+sh .ai-workspace/scripts/test/test-drift-check.sh    # 生成文件漂移检测
+sh .ai-workspace/scripts/test/test-import-rules.sh   # 规则反向导入
 ```
 
 ---
@@ -156,7 +159,7 @@ cd tui && npm test          # TUI：node:test（含 aiws/json/screens）
   AIWS_JSON=1 .ai-workspace/scripts/aiws skills list 2>/dev/null | jq '.skills[0] | {name, link_status}'
   # 预期：25 个技能，首项 name + link_status 合法 JSON
   ```
-- **通过标准**：`.skills` 数组非空，`link_status` 含 codex/claude/cursor/trae 的 global/project 布尔值。
+- **通过标准**：`.skills` 数组非空，`link_status` 含各工具 global/project 的三态值（`managed` 已链接 / `conflict` 同名非管理目标 / `missing` 未链接）。
 
 ### Task 3 (A3)：`secrets list/audit --json`（只读）
 
