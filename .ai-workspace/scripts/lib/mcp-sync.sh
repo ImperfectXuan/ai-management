@@ -27,7 +27,7 @@ sync_mcp() {
   
   # Validate JSON
   if ! jq empty "$mcp_file" 2>/dev/null; then
-    error "Invalid JSON in mcp/mcp.json"
+    log_error "Invalid JSON in mcp/mcp.json"
     return 1
   fi
   
