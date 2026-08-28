@@ -200,12 +200,17 @@ cmd_sync() {
     sync_mcp "$target_scope" "$target_tool"
   fi
   
-  # Sync skills
+  # Sync skills（workspace.json skills.enabled=false 时显式跳过并输出原因）
   if [ -d "${AIWS_DIR}/skills" ]; then
-    echo ""
-    . "${SCRIPT_DIR}/lib/platform.sh"
-    . "${SCRIPT_DIR}/lib/skills-link.sh"
-    sync_skills "$target_scope" "$target_tool"
+    if is_module_enabled "skills"; then
+      echo ""
+      . "${SCRIPT_DIR}/lib/platform.sh"
+      . "${SCRIPT_DIR}/lib/skills-link.sh"
+      sync_skills "$target_scope" "$target_tool"
+    else
+      echo ""
+      log_info "Skills module disabled (config/workspace.json skills.enabled=false). Skipping skills sync."
+    fi
   fi
   
   echo ""

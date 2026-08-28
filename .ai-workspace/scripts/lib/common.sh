@@ -332,6 +332,26 @@ get_enabled_tools() {
 }
 
 # ============================================================================
+# Module Switches (workspace.json 顶层模块键，如 skills.enabled)
+# ============================================================================
+
+# 判断模块是否启用。约定字段为 workspace.json 中 <module>.enabled；
+# 配置缺失或无 jq 环境时默认启用，保持向后兼容。
+is_module_enabled() {
+  local module="$1"
+
+  has_jq || return 0
+
+  # 注意：不能用 "${module}.enabled // true" —— jq 的 // 会把 false 视为空值，
+  # 导致 enabled=false 也返回 true。改用 getpath 并只对 null（字段缺失）取默认开启。
+  local enabled
+  enabled="$(load_workspace_config | jq -r --arg m "$module" \
+    'if getpath([$m, "enabled"]) == null then "true" else (getpath([$m, "enabled"]) | tostring) end' \
+    2>/dev/null || echo true)"
+  [ "$enabled" = "true" ]
+}
+
+# ============================================================================
 # Initialization
 # ============================================================================
 
