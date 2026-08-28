@@ -107,6 +107,7 @@ validate_rules() {
   
   for rule_file in "${AIWS_DIR}"/rules/*.md; do
     [ -f "$rule_file" ] || continue
+    is_rule_file "$rule_file" || continue
     rule_count=$((rule_count + 1))
     
     local filename

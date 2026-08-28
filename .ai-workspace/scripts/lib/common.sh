@@ -335,7 +335,8 @@ get_enabled_tools() {
 # Module Switches (workspace.json 顶层模块键，如 skills.enabled)
 # ============================================================================
 
-# 判断模块是否启用。约定字段为 workspace.json 中 <module>.enabled；
+# 判断模块是否启用。约定字段为 workspace.json 中 <module>.enabled，
+# 支持点号嵌套路径（如 rules.versioning → ["rules","versioning"]）；
 # 配置缺失或无 jq 环境时默认启用，保持向后兼容。
 is_module_enabled() {
   local module="$1"
@@ -344,11 +345,18 @@ is_module_enabled() {
 
   # 注意：不能用 "${module}.enabled // true" —— jq 的 // 会把 false 视为空值，
   # 导致 enabled=false 也返回 true。改用 getpath 并只对 null（字段缺失）取默认开启。
-  local enabled
-  enabled="$(load_workspace_config | jq -r --arg m "$module" \
-    'if getpath([$m, "enabled"]) == null then "true" else (getpath([$m, "enabled"]) | tostring) end' \
+  local path_array enabled
+  path_array="$(printf '%s' "$module" | awk -F. '{ for (i = 1; i <= NF; i++) printf "%s\"%s\"", (i > 1 ? "," : ""), $i }')"
+  enabled="$(load_workspace_config | jq -r --argjson p "[${path_array}, \"enabled\"]" \
+    'if getpath($p) == null then "true" else (getpath($p) | tostring) end' \
     2>/dev/null || echo true)"
   [ "$enabled" = "true" ]
+}
+
+# 判断是否为规范规则文件。版本化自身产物（CHANGELOG.md）不是规则：
+# 不排除的话会被 rules/*.md 的各消费点拼进 CLAUDE.md 或触发校验告警
+is_rule_file() {
+  [ "$(basename "$1")" != "CHANGELOG.md" ]
 }
 
 # ============================================================================

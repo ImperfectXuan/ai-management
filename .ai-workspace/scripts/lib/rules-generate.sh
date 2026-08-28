@@ -128,6 +128,7 @@ generate_rule_files() {
   local expected=""
   for rule_file in "${AIWS_DIR}"/rules/*.md "${AIWS_DIR}"/rules/domains/*.md; do
     [ -f "$rule_file" ] || continue
+    is_rule_file "$rule_file" || continue
     if [ "$target_scope" = "global" ] && is_domain_rule "$rule_file"; then
       continue
     fi
@@ -181,6 +182,7 @@ generate_rule_files() {
   # 第二遍：生成
   for rule_file in "${AIWS_DIR}"/rules/*.md "${AIWS_DIR}"/rules/domains/*.md; do
     [ -f "$rule_file" ] || continue
+    is_rule_file "$rule_file" || continue
 
     # Scope filter: global = canonical rules only, project = domain rules only
     if [ "$target_scope" = "global" ] && is_domain_rule "$rule_file"; then

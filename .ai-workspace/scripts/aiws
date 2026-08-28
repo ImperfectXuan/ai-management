@@ -250,9 +250,19 @@ sync_rules() {
     tools="$(get_enabled_tools)"
   fi
 
+  local synced=0
   for tool in $tools; do
     generate_tool_file "$tool" "$target_scope"
+    synced=$((synced + 1))
   done
+
+  # 只要有工具成功消费了规则层就落版本化检查点。set -e 下生成失败会中断在
+  # 循环内，不会走到这里 —— 避免把"规则已变"误记为"已同步"导致 rules
+  # status 永久假干净。版本化自身故障不拖垮 sync 主职。
+  if [ "$synced" -gt 0 ] && is_module_enabled "rules.versioning"; then
+    . "${SCRIPT_DIR}/lib/rules-versioning.sh"
+    rules_versioning_record || log_warn "规则版本化记录失败（不影响同步结果）"
+  fi
 }
 
 # Generate native file for a tool
@@ -274,6 +284,7 @@ generate_tool_file() {
   # Collect rules
   for rule_file in "${AIWS_DIR}"/rules/*.md; do
     [ -f "$rule_file" ] || continue
+    is_rule_file "$rule_file" || continue
     rules_content="${rules_content}
 $(cat "$rule_file")
 "
