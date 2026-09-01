@@ -1,74 +1,74 @@
 ---
 id: 06-error-handling
-title: Error Handling and Logging
+title: 错误处理与日志
 scope: all
 ---
 
-# Error Handling and Logging
+# 错误处理与日志
 
-How to handle failures and record what happened. Good error handling turns outages into five-second investigations.
+如何处理失败并记录发生了什么。好的错误处理能把宕机变成五秒定位。
 
-## Error Handling
+## 错误处理
 
-### Fail Fast
+### 快速失败
 
-- Validate inputs at system boundaries (API handlers, CLI entry points, message consumers)
-- Reject invalid input immediately with a clear, actionable error message
-- A startup-time crash with a useful message is better than undefined behavior in production
+- 在系统边界校验输入（API 处理器、CLI 入口点、消息消费者）
+- 立即用清晰、可操作的报错信息拒绝无效输入
+- 启动时带有效信息的崩溃，优于生产环境的未定义行为
 
-### Error Messages
+### 错误信息
 
-Every error message should answer three questions:
-1. **What** operation failed?
-2. **What** input or state caused the failure?
-3. **What** was expected instead?
+每条错误信息都应回答三个问题：
+1. **什么**操作失败了？
+2. **什么**输入或状态导致了失败？
+3. 预期本应是**什么**？
 
 ✅ `UserService.createUser: email 'x@y' already exists — expected unique email`
 ❌ `Error: duplicate key`
 
-### Don't Swallow Errors
+### 不要吞掉错误
 
-- Every catch / except / rescue block must either handle the error or re-raise it
-- An empty catch block is a bug — it hides failures and makes debugging near-impossible
-- If you intentionally suppress an error, add a comment explaining why
+- 每个 catch / except / rescue 块必须要么处理错误，要么重新抛出
+- 空的 catch 块是 bug —— 它隐藏失败，让调试几乎不可能
+- 如果你有意抑制一个错误，加注释说明原因
 
-### Custom Error Types
+### 自定义错误类型
 
-- Define a project-level base error type
-- Add specific subtypes for common failure categories: `ValidationError`, `NotFoundError`, `AuthenticationError`, `ExternalServiceError`
-- Attach a machine-readable error code that clients can switch on
-- Include a human-readable message that a support engineer can act on
+- 定义项目级的基础错误类型
+- 为常见失败类别添加具体子类型：`ValidationError`、`NotFoundError`、`AuthenticationError`、`ExternalServiceError`
+- 附加客户端可 switch 的机器可读错误码
+- 包含支持工程师可据以行动的人类可读信息
 
-### Error Boundaries
+### 错误边界
 
-- At module boundaries, wrap third-party errors in your own types
-- Callers should not need to know that your database driver throws `PgConnectionError` — they should see `StorageUnavailableError`
-- This keeps the blast radius of dependency changes small
+- 在模块边界，把第三方错误包装进你自己的类型
+- 调用方不应需要知道你的数据库驱动抛 `PgConnectionError` —— 他们应看到 `StorageUnavailableError`
+- 这能缩小依赖变更的爆炸半径
 
-## Logging
+## 日志
 
-### Log Levels
+### 日志级别
 
-- **DEBUG**: internal state useful during development. Noise in production — disable by default
-- **INFO**: key business events. "User logged in", "Order placed", "Payment processed". Use sparingly — one or two per significant operation
-- **WARN**: recoverable anomalies. "Retry #3 succeeded", "Cache miss, falling back to primary store", "Deprecated endpoint called"
-- **ERROR**: something is broken and needs human attention. Include enough context to start investigating without re-running with debug logging
+- **DEBUG**：开发期间有用的内部状态。生产中是噪音 —— 默认关闭
+- **INFO**：关键业务事件。「用户已登录」「订单已创建」「支付已处理」。少量使用 —— 每个重要操作一两条
+- **WARN**：可恢复的异常。「重试 #3 成功」「缓存未命中，回退到主存储」「调用了已弃用端点」
+- **ERROR**：有东西坏了，需要人工关注。附带足够上下文以便无需重跑调试日志就能开始排查
 
-### What to Log, What NOT to Log
+### 记录什么，不记录什么
 
-Always log:
-- Unhandled exceptions — with full stack trace
-- Failed external calls — include service name, endpoint, latency, and response status
-- Security-relevant events: authentication failures, permission denials, rate limit hits
+始终记录：
+- 未处理的异常 —— 附完整堆栈
+- 失败的外部调用 —— 包含服务名、端点、延迟与响应状态
+- 安全相关事件：认证失败、权限拒绝、限流命中
 
-Never log:
-- Passwords, tokens, API keys, session IDs (even hashed)
-- Personal data: email addresses, phone numbers, identity numbers, credit card data
-- Full request/response bodies unless explicitly in a debug mode with access controls
+绝不记录：
+- 密码、token、API key、会话 ID（即使哈希后）
+- 个人数据：邮箱地址、电话号码、身份编号、信用卡数据
+- 完整请求/响应体，除非显式处于带访问控制的调试模式
 
-### Structured Logging
+### 结构化日志
 
-- Use key=value pairs or structured JSON: `userId=42 action=login status=success latencyMs=12`
-- This makes logs searchable and aggregatable
-- Include a correlation / trace ID in every log entry so you can follow a request across services
-- Timestamps in UTC, ISO 8601 format
+- 用 key=value 对或结构化 JSON：`userId=42 action=login status=success latencyMs=12`
+- 这让日志可搜索、可聚合
+- 每条日志都含关联 / trace ID，以便跨服务追踪一个请求
+- 时间戳用 UTC、ISO 8601 格式

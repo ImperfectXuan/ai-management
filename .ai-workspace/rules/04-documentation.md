@@ -1,48 +1,48 @@
 ---
 id: 04-documentation
-title: Documentation
+title: 文档
 scope: all
 ---
 
-# Documentation
+# 文档
 
-What to document, when, and how. Documentation that drifts from reality is worse than no documentation — keep it honest.
+记录什么、何时记录、如何记录。偏离现实的文档比没有文档更糟 —— 保持它诚实。
 
 ## README
 
-Every project root must have a README covering these five items:
+每个项目根目录必须有 README，涵盖这五项：
 
-1. **What this project does** — one sentence + one paragraph
-2. **Quick start** — commands a new developer runs to get a working dev environment (install deps, build, run)
-3. **Prerequisites** — runtime version, system dependencies, required tooling
-4. **Basic usage** — the 2-3 most common operations with examples
-5. **How to contribute** — link to CONTRIBUTING or a short paragraph on where to start
+1. **这个项目做什么** —— 一句话 + 一段话
+2. **快速开始** —— 新开发者运行以得到可用开发环境的命令（装依赖、构建、运行）
+3. **前置条件** —— 运行时版本、系统依赖、所需工具
+4. **基本用法** —— 2-3 个最常见操作及示例
+5. **如何贡献** —— 链接到 CONTRIBUTING，或一段关于从哪开始的话
 
-## Inline Comments
+## 行内注释
 
-- **Explain the algorithm**: why a particular approach was chosen over obvious alternatives
-- **Mark edge cases**: "this handles the case where the input list is empty"
-- **Flag temporary solutions**: use `TODO` / `HACK` / `FIXME` with context (see 01-code-style)
-- **No redundant comments**: `x = x + 1  // increment x` is noise — delete it
-- **No commented-out code**: use version control for history
+- **解释算法**：为什么选了该方案而非显而易见的替代方案
+- **标注边界情况**：「这里处理了输入列表为空的情况」
+- **标记临时方案**：使用带上下文的 `TODO` / `HACK` / `FIXME`（见 01-code-style）
+- **不要冗余注释**：`x = x + 1  // 自增 x` 是噪音 —— 删掉它
+- **不要注释掉的代码**：用版本控制保存历史
 
-## API Documentation
+## API 文档
 
-Every public function, method, or endpoint must document:
+每个公共函数、方法或端点都必须记录：
 
-- **Parameters**: name, type, expected range or constraints
-- **Return value**: type and meaning (including what `null`/`None`/`nil` means)
-- **Exceptions / errors**: what can go wrong and what callers should do about it
-- **Example**: a minimal code snippet showing correct usage (not required for trivial getters)
+- **参数**：名称、类型、预期范围或约束
+- **返回值**：类型与含义（包括 `null`/`None`/`nil` 表示什么）
+- **异常 / 错误**：可能出什么错，调用方应如何处理
+- **示例**：展示正确用法的最小代码片段（平凡的 getter 不要求）
 
 ## Changelog
 
-- Follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format
-- Every release gets an entry under Added / Changed / Deprecated / Removed / Fixed / Security
-- Write changelog entries for humans, not for machines — "Added rate limiting to login endpoint to prevent brute-force attacks" over "Added rate limiter middleware"
+- 遵循 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 格式
+- 每个发布都在 Added / Changed / Deprecated / Removed / Fixed / Security 下有条目
+- 为人类而非机器写 changelog 条目 —— 写「为登录端点添加限流以防止暴力破解」，而非「添加了限流中间件」
 
-## Stale Documentation
+## 过时文档
 
-- If you discover documentation that's wrong, fix it in the same PR
-- If you can't fix it now, add a prominent version-range note at the top: `<!-- Accurate for v1.0–1.3. Needs update for v2.0. -->`
-- Delete obsolete docs rather than accumulating them — the git history preserves them
+- 如果发现文档有误，在同一个 PR 里修复
+- 如果现在无法修复，在顶部加醒目的版本范围注记：`<!-- 对 v1.0–1.3 准确。v2.0 需更新。 -->`
+- 删除过时文档而非累积它们 —— git 历史保留了它们

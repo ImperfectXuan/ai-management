@@ -1,67 +1,67 @@
 ---
 id: 00-core
-title: Core Principles
+title: 核心原则
 scope: all
 ---
 
-# Core Principles
+# 核心原则
 
-These principles guide all code and design decisions. When in conflict, prefer the earlier item.
+这些原则指导所有代码与设计决策。当它们相互冲突时，优先遵循排在前面的条目。
 
-## 1. Readability Over Micro-Optimization
+## 1. 可读性优先于微优化
 
-Code is read far more often than it is written. Write for human comprehension first.
+代码被阅读的频率远高于被编写。优先为人的理解而写。
 
-- Optimize only when measurement shows a bottleneck
-- If you must optimize, document the before/after and the reasoning
-- Clever code is not good code — clear code is good code
+- 只有在测量表明存在瓶颈时才优化
+- 如果必须优化，记录优化前后对比与原因
+- 巧妙的代码不等于好代码 —— 清晰的代码才是好代码
 
-## 2. Explicit Over Implicit
+## 2. 显式优于隐式
 
-Make behavior visible at the call site.
+让行为在调用处可见。
 
-- Avoid magic values — name them as constants or configuration
-- Avoid implicit global state — pass dependencies explicitly
-- Avoid implicit type coercion — be deliberate about types
-- Default arguments should be obvious and documented
+- 避免魔法值 —— 将其命名为常量或配置
+- 避免隐式全局状态 —— 显式传递依赖
+- 避免隐式类型转换 —— 对类型保持刻意
+- 默认参数应当显而易见并有文档说明
 
-## 3. Simple Over Flexible
+## 3. 简单优于灵活
 
-YAGNI — You Aren't Gonna Need It.
+YAGNI —— 你不会需要它（You Aren't Gonna Need It）。
 
-- Don't add abstraction for hypothetical future requirements
-- One level of indirection is plenty; two is a question; three is a design smell
-- Prefer straightforward solutions that can be refactored later over over-engineered ones
-- If you can't explain the design in two sentences, simplify it
+- 不要为假设性的未来需求添加抽象
+- 一层间接足够了；两层需要斟酌；三层是设计坏味道
+- 优先选择之后可重构的直白方案，而非过度设计
+- 如果你不能用两句话解释清楚设计，就简化它
 
-## 4. Convention Over Configuration
+## 4. 约定优于配置
 
-Consistent defaults reduce decision fatigue and cognitive load.
+一致的默认值减少决策疲劳与认知负担。
 
-- Follow the existing patterns of the codebase you're in
-- If no pattern exists, pick one and document it
-- New team members should be able to find things by understanding the conventions, not by memorizing locations
+- 遵循你所在代码库的既有模式
+- 如果不存在模式，选定一个并文档化
+- 新成员应当通过理解约定来找到东西，而非靠记忆位置
 
-## 5. Composition Over Inheritance
+## 5. 组合优于继承
 
-Prefer assembling behavior from small, focused pieces.
+优先用小的、专注的部件组装行为。
 
-- Use interfaces / protocols / traits rather than deep inheritance chains
-- A function that takes another function is often simpler than a subclass
-- Inheritance is for "is-a" relationships with shared behavior — not for code reuse alone
+- 使用接口 / 协议 / trait，而非深层的继承链
+- 接受函数的函数通常比子类更简单
+- 继承用于具有共享行为的「is-a」关系 —— 而非仅仅为了代码复用
 
-## 6. Immutability by Default
+## 6. 默认不可变
 
-Favor data that doesn't change.
+偏好不会变化的数据。
 
-- Default to immutable data structures and pure functions
-- When state must change, make the mutation explicit and localized
-- Avoid shared mutable state across modules — it is the root of most concurrency bugs
+- 默认使用不可变数据结构与纯函数
+- 当状态必须改变时，让变更显式且局部化
+- 避免跨模块共享可变状态 —— 它是大多数并发缺陷的根源
 
-## 7. Fail Fast and Loud
+## 7. 快速且大声地失败
 
-Catch problems at the earliest possible moment.
+在最早的时刻发现问题。
 
-- Validate inputs at system boundaries
-- Don't silently swallow errors or return sentinel values — raise them
-- A clear error message at startup is better than mysterious misbehavior at runtime
+- 在系统边界校验输入
+- 不要静默吞掉错误或返回哨兵值 —— 抛出它们
+- 启动时的清晰报错优于运行时的神秘异常

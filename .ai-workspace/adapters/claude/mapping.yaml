@@ -17,6 +17,8 @@ rules:
     required: true
   - source: rules/06-error-handling.md
     required: true
+  - source: rules/07-conversation-style.md
+    required: true
   - source: rules/domains/aspnet.md
     required: false
   - source: rules/domains/vue3.md

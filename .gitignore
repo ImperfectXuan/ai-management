@@ -9,6 +9,9 @@ CLAUDE.md
 .cursor/rules/
 .trae/rules/
 
+# Local code index (CodeGraph)
+.codegraph/
+
 # Tool-specific MCP configs (synced from .ai-workspace/mcp/)
 .mcp.json
 .codex/

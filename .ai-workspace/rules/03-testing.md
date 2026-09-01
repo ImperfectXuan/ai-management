@@ -1,71 +1,71 @@
 ---
 id: 03-testing
-title: Testing Strategy
+title: 测试策略
 scope: all
 ---
 
-# Testing Strategy
+# 测试策略
 
-Guidelines for writing effective, maintainable tests. Adapt the specific tooling to your language, but keep these principles.
+关于编写有效、可维护测试的指导。根据你的语言适配具体工具，但保留这些原则。
 
-## The Test Pyramid
+## 测试金字塔
 
 ```
-        /  E2E   \       ← A handful. Happy-path flows through the full system.
+        /  E2E   \       ← 少量。贯穿全系统的快乐路径流程。
        /──────────\
-      /Integration \     ← A moderate number. How components talk to each other.
+      /Integration \     ← 中等数量。组件之间如何协作。
      /──────────────\
-    /     Unit       \   ← The majority. Single function or module in isolation.
+    /     Unit       \   ← 大多数。单个函数或模块的隔离测试。
    /──────────────────\
 ```
 
-- **Unit tests**: fast, focused, no I/O. Test one behavior per test.
-- **Integration tests**: verify that real implementations talk to each other correctly. Test boundary crossings (module → database, module → API).
-- **End-to-end tests**: simulate a real user journey. Keep these few — they are slow and brittle.
+- **单元测试**：快、专注、无 I/O。每个测试测一种行为。
+- **集成测试**：验证真实实现彼此正确协作。测边界跨越（模块 → 数据库、模块 → API）。
+- **端到端测试**：模拟真实用户旅程。保持少量 —— 它们慢且脆弱。
 
-## Coverage
+## 覆盖率
 
-- Core business logic: ≥ 80% line coverage
-- Utility functions: test the public surface; don't chase every branch
-- Coverage percentage is a floor, not a goal — 100% coverage of bad tests is still bad tests
+- 核心业务逻辑：≥ 80% 行覆盖
+- 工具函数：测公共表面；不要追逐每个分支
+- 覆盖率是底线而非目标 —— 100% 覆盖的烂测试仍是烂测试
 
-## Test Naming
+## 测试命名
 
 ```
-<subject>_<scenario>_<expected outcome>
+<主体>_<场景>_<预期结果>
 ```
 
-Examples:
+示例：
 - `calculateDiscount_expiredCoupon_returnsZero`
 - `login_invalidPassword_throwsAuthenticationError`
 
-A reader should understand what broke, under what conditions, without opening the test body.
+读者无需打开测试体就能理解在什么条件下什么失败了。
 
-## Structure
+## 结构
 
-Follow **Arrange → Act → Assert** (AAA):
+遵循 **Arrange → Act → Assert**（AAA）：
 
-1. **Arrange**: set up the test data and preconditions
-2. **Act**: execute the single behavior under test
-3. **Assert**: verify the outcome — one logical assertion per test when practical
+1. **Arrange**：设置测试数据与前置条件
+2. **Act**：执行被测的单一行为
+3. **Assert**：验证结果 —— 可行时每个测试一条逻辑断言
 
-Separate the three blocks with a blank line for visual clarity.
+三个区块之间空一行以便视觉清晰。
 
-## Independence
+## 独立性
 
-- Tests must not depend on execution order
-- Tests must not share mutable state
-- Each test sets up its own world and tears it down
-- A failing test should not cause unrelated tests to fail
+- 测试不得依赖执行顺序
+- 测试不得共享可变状态
+- 每个测试搭建自己的世界并拆除它
+- 一个测试失败不应导致无关测试失败
 
-## Mocking
+## Mock
 
-- Mock **external boundaries**: network calls, file system, system clock, random number generators
-- Do **not mock** internal modules you own — test them through their real interface
-- If a module is hard to test without mocking its internals, that's a design signal: the module is too tightly coupled
+- Mock **外部边界**：网络调用、文件系统、系统时钟、随机数生成器
+- **不要 mock** 你拥有的内部模块 —— 通过其真实接口测试它们
+- 如果一个模块不 mock 其内部就难以测试，这是一个设计信号：该模块耦合过紧
 
-## Tests as Documentation
+## 测试即文档
 
-- A well-written test describes the expected behavior more precisely than prose
-- When someone asks "what happens if X?", they should be able to find a test that answers
-- Keep test code as clean as production code — no copy-pasted setup blocks, no magic values without context
+- 写得好的测试比散文更精确地描述预期行为
+- 当有人问「如果 X 会怎样？」，他们应当能找到回答该问题的测试
+- 让测试代码像生产代码一样干净 —— 不复制粘贴 setup 块，不出现无上下文的魔法值

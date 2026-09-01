@@ -1,59 +1,59 @@
 ---
 id: 02-project-structure
-title: Project Structure
+title: 项目结构
 scope: all
 ---
 
-# Project Structure
+# 项目结构
 
-Conventions for organizing code into directories and modules. Applies regardless of language or framework.
+关于把代码组织进目录与模块的约定。与语言或框架无关。
 
-## Entry Point
+## 入口点
 
-- The project root must have a clear, discoverable entry point
-- Common patterns: `src/index.*`, `app/main.*`, `cmd/` directory, or `main.*` at root
-- A new developer should be able to find the entry point within 30 seconds of opening the repository
+- 项目根目录必须有清晰、易发现的入口点
+- 常见模式：`src/index.*`、`app/main.*`、`cmd/` 目录，或根目录的 `main.*`
+- 新开发者应在打开仓库 30 秒内找到入口点
 
-## Directory Naming
+## 目录命名
 
-- **kebab-case** for directories: `user-service`, `payment-gateway`, `email-templates`
-- Directory name should describe what lives inside — `authentication` over `auth-stuff`
-- Group by feature or domain, not by file type:
-  - ✅ `users/` (contains handler, repository, model, tests)
-  - ❌ `controllers/`, `models/`, `views/` scattered across the tree
+- 目录用 **kebab-case**：`user-service`、`payment-gateway`、`email-templates`
+- 目录名应描述里面装什么 —— 用 `authentication` 而非 `auth-stuff`
+- 按特性或领域分组，而非按文件类型：
+  - ✅ `users/`（包含 handler、repository、model、tests）
+  - ❌ `controllers/`、`models/`、`views/` 散落在整棵树上
 
-## Layering
+## 分层
 
-Organize code by distance from the domain, not by technical role:
+按与领域的距离组织代码，而非按技术角色：
 
 ```
-entrypoint / delivery  ← HTTP, CLI, event handlers (thin, no business logic)
+entrypoint / delivery  ← HTTP、CLI、事件处理器（薄，无业务逻辑）
        ↓
-  business logic       ← domain rules, use cases, workflows
+  business logic       ← 领域规则、用例、工作流
        ↓
-  data access          ← repositories, data sources, external APIs
+  data access          ← 仓储、数据源、外部 API
        ↓
- infrastructure        ← logging, configuration, framework wiring
+ infrastructure        ← 日志、配置、框架装配
 ```
 
-- Inner layers never import from outer layers
-- Sibling modules at the same layer should not import each other — extract shared code upward
-- Each layer exposes a narrow public interface; internals stay private
+- 内层永不从外层导入
+- 同层兄弟模块不应互相导入 —— 把共享代码向上抽取
+- 每层暴露窄的公共接口；内部保持私有
 
-## File Naming
+## 文件命名
 
-- Name the file after its primary export: `UserAuthenticator.js`, `password-hasher.go`, `email_service.py`
-- Test files live alongside the code they test: `UserAuthenticator.test.js`, `password_hasher_test.go`
-- A directory with a single public module may use an `index` file to re-export
+- 以主要导出命名文件：`UserAuthenticator.js`、`password-hasher.go`、`email_service.py`
+- 测试文件与被测代码放在一起：`UserAuthenticator.test.js`、`password_hasher_test.go`
+- 只有一个公共模块的目录可用 `index` 文件再导出
 
-## Configuration
+## 配置
 
-- Environment-specific values live in configuration files or environment variables, never hardcoded
-- Default configuration values should enable a working dev setup out of the box
-- Secrets (API keys, passwords, tokens) never go in configuration files — use a secrets manager or environment variables
+- 环境相关的值放在配置文件或环境变量中，绝不可硬编码
+- 默认配置值应开箱即可用，支撑起一个能跑的开发环境
+- 密钥（API key、密码、token）绝不放配置文件 —— 用密钥管理器或环境变量
 
 ## Shared / Common / Utils
 
-- General-purpose code with no business meaning: string helpers, date formatting, type guards
-- These directories should stay small — if they grow, the code probably belongs closer to its consumers
-- A function used by one module is not "utility" — it belongs to that module
+- 无业务含义的通用代码：字符串辅助、日期格式化、类型守卫
+- 这些目录应保持小 —— 若它们膨胀，这些代码可能更应靠近其消费者
+- 只被一个模块使用的函数不是「工具」—— 它属于那个模块

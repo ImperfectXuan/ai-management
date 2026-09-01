@@ -1,52 +1,52 @@
 ---
 id: 01-code-style
-title: Code Style
+title: 代码风格
 scope: all
 ---
 
-# Code Style
+# 代码风格
 
-Language-agnostic conventions for naming, formatting, and structure. When a language has an established community style guide, it takes precedence. Otherwise, apply these rules.
+关于命名、格式与结构的语言无关约定。当某语言有成熟的社区风格指南时，以它为准；否则应用这些规则。
 
-## Naming
+## 命名
 
-- **Types, classes, interfaces**: Nouns or noun phrases (`UserProfile`, `OrderRepository`)
-- **Functions, methods**: Verbs or verb phrases (`getUser`, `calculateTotal`, `sendNotification`)
-- **Booleans**: `is`, `has`, `can`, `should` prefix (`isActive`, `hasPermission`, `canEdit`, `shouldRetry`)
-- **Constants**: UPPER_SNAKE_CASE for truly constant values (`MAX_RETRY_COUNT`, `DEFAULT_TIMEOUT_MS`)
-- **Variables**: Describe what they contain — `users` over `data`, `elapsedMs` over `time`
-- **No abbreviations** unless they are universal (`id`, `url`, `http`, `json`, `xml`). Never `usr`, `cnt`, `msg` (except in localized contexts like error codes)
+- **类型、类、接口**：名词或名词短语（`UserProfile`、`OrderRepository`）
+- **函数、方法**：动词或动词短语（`getUser`、`calculateTotal`、`sendNotification`）
+- **布尔值**：`is`、`has`、`can`、`should` 前缀（`isActive`、`hasPermission`、`canEdit`、`shouldRetry`）
+- **常量**：真正不变的量用 UPPER_SNAKE_CASE（`MAX_RETRY_COUNT`、`DEFAULT_TIMEOUT_MS`）
+- **变量**：描述其内容 —— 用 `users` 而非 `data`，用 `elapsedMs` 而非 `time`
+- **不缩写**，除非是通用缩写（`id`、`url`、`http`、`json`、`xml`）。绝不用 `usr`、`cnt`、`msg`（除非在错误码等局部语境中）
 
-## Function / Method Size
+## 函数 / 方法体量
 
-- Target ≤ 50 lines (not counting blank lines and comments)
-- If a function exceeds this, extract logical sub-steps into well-named helper functions
-- A function should do one thing and operate at a single level of abstraction
+- 目标 ≤ 50 行（不计空行与注释）
+- 若函数超出此限制，把逻辑子步骤抽取为命名清晰的辅助函数
+- 一个函数应只做一件事，且处于单一抽象层级
 
-## File Size
+## 文件体量
 
-- Target ≤ 500 lines per file
-- When a file grows beyond this, split by responsibility, not arbitrarily
-- Co-location is fine: a dozen tightly related small functions in one file is better than one function per file
+- 目标每个文件 ≤ 500 行
+- 文件超出此限制时，按职责而非随意拆分
+- 就近聚合是好的：一打紧密相关的小函数放在一个文件里，好过一个函数一个文件
 
-## Comments
+## 注释
 
-- **Explain why, not what** — the code shows what it does; comments explain the reasoning
-- **Document surprises**: hacks, workarounds, non-obvious performance choices, and "don't do X because Y" constraints
-- **TODO / FIXME / HACK**: always include a date and context so readers can judge staleness
-  - `// TODO(2026-07): extract this once we have three callers`
-  - `// FIXME: breaks when input has trailing whitespace — see issue #42`
-- **Delete commented-out code** before merging — version control remembers it; the file should not
+- **解释「为什么」而非「是什么」** —— 代码已经展示了做什么；注释解释推理
+- **记录惊喜**：hack、变通方案、不明显的性能选择，以及「不要做 X，因为 Y」这类约束
+- **TODO / FIXME / HACK**：始终附带日期与上下文，以便读者判断是否过期
+  - `// TODO(2026-07): 等有三个调用方后再抽取它`
+  - `// FIXME: 输入含尾部空白时会出错 —— 见 issue #42`
+- 合并前**删除被注释掉的代码** —— 版本控制记住了它们；文件不应保留
 
-## Whitespace
+## 空白
 
-- One blank line between logical blocks within a function
-- Two blank lines between top-level definitions (functions, classes)
-- No trailing whitespace on any line
-- Files end with exactly one newline
+- 函数内逻辑块之间空一行
+- 顶层定义（函数、类）之间空两行
+- 任何行末尾不留空白
+- 文件以恰好一个换行符结尾
 
-## Consistency
+## 一致性
 
-- If the codebase already uses a different convention, match it
-- A consistent codebase beats a "better" convention applied inconsistently
-- When in doubt, look at surrounding code and replicate
+- 如果代码库已使用不同的约定，遵循它
+- 一致地应用一个约定，好过不一致地应用一个「更好」的约定
+- 存疑时，参照周围代码并复刻
