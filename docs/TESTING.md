@@ -59,9 +59,11 @@ cd "$TMP" && git init         # 初始化为 git 仓库
 ```bash
 cd electron && npm test     # 桌面应用：core 单测 + renderer 冒烟（node:test + tsx）
 cd tui && npm test          # TUI：node:test（含 aiws/json/rules/skills/screens）
-sh .ai-workspace/scripts/test/test-skills-link.sh    # skills 链接/三态/开关（沙盒）
-sh .ai-workspace/scripts/test/test-drift-check.sh    # 生成文件漂移检测
-sh .ai-workspace/scripts/test/test-import-rules.sh   # 规则反向导入
+sh .ai-workspace/scripts/test/test-ci.sh               # CI 工作流安装器（沙盒）
+sh .ai-workspace/scripts/test/test-drift-check.sh      # 生成文件漂移检测
+sh .ai-workspace/scripts/test/test-import-rules.sh     # 规则反向导入
+sh .ai-workspace/scripts/test/test-rules-versioning.sh # 规则版本化（manifest/CHANGELOG/status/history）
+sh .ai-workspace/scripts/test/test-skills-link.sh      # skills 链接/三态/开关（沙盒）
 ```
 
 ---
@@ -128,6 +130,8 @@ sh .ai-workspace/scripts/test/test-import-rules.sh   # 规则反向导入
 | `aiws import mcp --dry-run` | 预览可导入的 MCP，不实际写入 |
 | `aiws import skills --dry-run` | 预览可导入的技能 |
 | `aiws import mcp --from codex -y` | 从 Codex 导入 MCP 到 `mcp.json`（同名去重） |
+| `aiws import rules --dry-run` | 预览可反向导入的未托管规则 |
+| `aiws import rules --from cursor -y` | 从 Cursor 逐条反向导入未托管规则到 `rules/domains/` |
 
 ---
 
@@ -296,6 +300,7 @@ sh .ai-workspace/scripts/test/test-import-rules.sh   # 规则反向导入
 | Task 8 | `test/sync.test.ts` | 规则生成 frontmatter；幂等清空；进度行 + MCP 同步 |
 | Task 9 | `test/diff.test.ts` | identical；单/多 hunk 增删识别 |
 | Task 10 | `test/vault-bridge.test.ts` | 缺 aiws 抛错；执行 --version 桥接 |
+| Task 10 | `test/ipc-rules-validate.test.ts` | setRuleRequired 入参边界校验（null/原始类型/非法 tool） |
 | Task 11 | `test/sync-cancel.test.ts` | syncRun 中止后停止产出新行 |
 | Task 18 | `test/app.test.tsx` | 无仓库渲染管理页；有仓库渲染侧边栏+tab |
 
@@ -571,7 +576,6 @@ sh .ai-workspace/scripts/test/test-import-rules.sh   # 规则反向导入
 | 密钥 vault 写操作 | 首版只读（桥接 `aiws secrets --json`），解密/写操作不做 |
 | 规则编辑多字段表单 | TUI 首版仅列表+装载开关，Enter 多字段编辑延后 |
 | MCP 添加完整表单 | TUI 首版逐字符简化输入 |
-| `import rules` | 预留未实现（需反向拆分拼接文件） |
 
 ---
 

@@ -63,9 +63,9 @@ aiws sync
 - **已是 symlink 的 Skill**：自动跳过（已被 AI Workspace 管理）
 - 导入前自动备份 `mcp.json`（生成 `.bak` 文件）
 
-### 为什么 `aiws import rules` 提示未实现？
+### 支持 `aiws import rules`（规则反向导入）吗？
 
-规则导入需要将拼接后的工具原生文件（CLAUDE.md 等）反向拆分为独立的 `rules/*.md` 文件，复杂度较高。当前所有规则已通过 `~/.ai-rules/*.mdc` 导入完毕，暂无反向拆分需求。
+支持。规则反向导入已实现：从 Cursor/Trae 逐条转换（`.mdc`/`.md` → `rules/domains/*.md`）、从 Claude/Codex 整文件导入（合并文件 → 单条规则），并用 `mapping.yaml` 幂等登记。可用 `aiws import rules --dry-run` 预览。
 
 ## 工具兼容性
 

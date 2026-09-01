@@ -25,7 +25,7 @@
 |---|---|
 | ADR 模板和记忆系统 | P1 |
 | 项目上下文摘要 | P1 |
-| Git pre-commit hook 集成 | P1 |
+| Git pre-commit hook 集成 | P1 · ✅ 已完成 |
 | mapping.yaml 驱动的规则选择性包含 | P1 · ✅ 已完成 |
 | 规则反向导入（`aiws import rules`） | P2 · ✅ 已完成 |
 | GitHub Copilot 适配器 | P2 |

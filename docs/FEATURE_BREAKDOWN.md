@@ -26,7 +26,7 @@
 
 **职责**：维护工具无关的 Markdown 规范规则，YAML frontmatter + 主体内容；按 `mapping.yaml` 选择性包含，按 `scope` 字段按需装载。
 
-**事实来源**：`rules/00-core.md` ~ `06-error-handling.md`（7 条核心）+ `rules/domains/*.md`（6 条领域：aspnet / vue3 / winforms / wpf / karpathy-behavioral / global-workflow）。
+**事实来源**：`rules/00-core.md` ~ `07-conversation-style.md`（8 条核心）+ `rules/domains/*.md`（6 条领域：aspnet / vue3 / winforms / wpf / karpathy-behavioral / global-workflow）。
 
 **端覆盖**：C ✅ · T ✅ · D ✅
 
@@ -38,8 +38,8 @@
 | 按 `scope` 字段过滤（all / csharp / vue …） | ✅ | 工具原生文件生成阶段生效 |
 | 按 `tools` 字段过滤 | 🟡 | Roadmap P2，未明确完成点 |
 | 规则编辑视图（多字段表单） | ❌ | TUI/Desktop 延后项 |
-| 规则反向导入（`aiws import rules`） | ❌ | Roadmap P2，文档明确"未实现" |
-| 规则版本化 / 变更追踪 | ❌ | Phase 2 P2 |
+| 规则反向导入（`aiws import rules`） | ✅ | cursor/trae 逐条转换、claude/codex 整文件导入 |
+| 规则版本化 / 变更追踪 | ✅ | sha256 manifest + 自动 CHANGELOG + `rules status/history` |
 
 **边界与契约**：
 - 输入：`rules/*.md`、`rules/domains/*.md`、`adapters/{tool}/mapping.yaml`
@@ -48,8 +48,6 @@
 
 **TODO**
 - [ ] 落实 `tools` 字段过滤规则（ROADMAP Phase 1 P2）
-- [ ] 规划 `aiws import rules` 的反向拆分方案
-- [ ] 规则版本化方案选型（快照 / hash / changelog）
 - [ ] 规则编辑视图（TUI 多字段表单 + Desktop 详情面板）
 
 ---
@@ -238,20 +236,19 @@
 
 **职责**：从各工具原生文件反向导入到规范层。
 
-**端覆盖**：C ✅（mcp/skills）· C 🟡（rules）· T ❌ · D ❌
+**端覆盖**：C ✅（mcp/skills/rules）· T ❌ · D ❌
 
 | 能力 | 状态 | 备注 |
 |---|---|---|
 | `aiws import mcp`（含 TOML 解析） | ✅ | Codex TOML 支持已实现 |
 | `aiws import skills` | ✅ | 已管理 symlink 跳过、同名去重 |
-| `aiws import rules` | ❌ | Roadmap P2；需反向拆分拼接文件 |
+| `aiws import rules` | ✅ | cursor/trae 逐条转换、claude/codex 整文件导入 |
 | `--from <tool>` 限定来源 | ✅ | CLI |
 | `--dry-run` 预览 | ✅ | CLI |
 | 自动备份 | ✅ | 导入前备份现有规范层文件 |
 | TUI / Desktop 引导式导入 | ❌ | 未规划 |
 
 **TODO**
-- [ ] 规则反向导入（`import rules`）：按工具根层 → 拆分回 `rules/*.md` + `mapping.yaml`
 - [ ] TUI 导入向导（选工具 → 预览 → 确认）
 - [ ] Desktop 导入页面（diff 预览 + 一键应用）
 
@@ -392,9 +389,9 @@
 | CLI（`aiws` POSIX sh） | ✅ | 唯一业务逻辑引擎 |
 | TUI（Ink + React） | ✅ | 6 页（dashboard / effective / mcp / rules / secrets / skills） |
 | Desktop（Electron + React + TS） | ✅ | 8 页（dashboard / diff / mcp / rules / secrets / settings / skills / workspaces） |
-| 核心层 TS 重写（`electron/src/core/`） | ✅ | 10 模块 + 11 测试文件 |
+| 核心层 TS 重写（`electron/src/core/`） | ✅ | 11 模块 + 12 测试文件 |
 | TUI 单元测试（`tui/test/`） | ✅ | 3 文件 |
-| CI/CD（推送自动 sync） | ❌ | Phase 2 P2 |
+| CI/CD（推送自动 sync） | ✅ | Phase 2；`aiws ci install` 安装 GitHub Actions 工作流 |
 | 跨项目模板提取 | ❌ | Phase 2 P2 |
 | 单命令项目初始化脚手架 | ❌ | Phase 2 P3 |
 | 精选规则集（语言 / 领域包） | ❌ | Phase 3 P3 |
@@ -412,14 +409,12 @@
 ### P1 — 重要但未达 MVP 后
 - [ ] ADR / context / decisions 模板落地（记忆域）
 - [ ] `validate --json` 结构化输出
-- [ ] Git pre-commit hook 集成
 - [ ] MCP schema 扩展（env / headers / timeout / transport）
 - [ ] Desktop / TUI 校验结果嵌入仪表盘
 - [ ] 死链检测（rules / skills）
 
 ### P2 — 有价值、带宽允许时
 - [ ] 规则 `tools` 字段过滤
-- [ ] `aiws import rules` 反向导入
 - [ ] TUI / Desktop 逐工具 × 逐 scope 技能链接
 - [ ] GitHub Copilot 适配器
 - [ ] Desktop / TUI 密钥写入界面
@@ -434,7 +429,6 @@
 ### P3 — 锦上添花
 - [ ] 密钥轮换 / 团队共享
 - [ ] 技能市场 / 远程仓库
-- [ ] CI/CD 推送自动同步
 - [ ] 跨项目模板提取
 - [ ] 单命令项目脚手架
 - [ ] 精选规则集 / 社区模板
@@ -452,7 +446,7 @@
 | 记忆 | 🟡 目录 | ❌ | ❌ |
 | 配置 | ✅ | ❌ | 🟡 |
 | 同步引擎 | ✅ | 🟡 | ✅ |
-| 反向导入 | ✅ mcp/skills | ❌ | ❌ |
+| 反向导入 | ✅ mcp/skills/rules | ❌ | ❌ |
 | 校验 | ✅ | 🟡 | 🟡 |
 | 适配器 | ✅ | 间接 | ✅ |
 | 工作区 | ❌ | ❌ | ✅ |

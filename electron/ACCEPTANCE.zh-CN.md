@@ -25,11 +25,11 @@
 
 ```bash
 cd /Users/xuanyi/Documents/AI-management/electron
-npm test            # 全量测试（当前 32 个用例）
+npm test            # 全量测试（当前 61 个用例）
 npm test 2>&1 | grep -E "✖|✔"    # 只看用例名与失败
 ```
 
-### 1.2 当前测试覆盖（Phase 1）
+### 1.2 当前测试覆盖
 
 | 模块 | 文件 | 验证的行为 |
 |---|---|---|
@@ -38,11 +38,15 @@ npm test 2>&1 | grep -E "✖|✔"    # 只看用例名与失败
 | workspace | `test/workspace.test.ts` | 仓库去重持久化；aiws 脚本存在性检测 |
 | rules | `test/rules.test.ts` | 规则列表 + required/domain/globs；开关切换；globs 优先级 |
 | mcp | `test/mcp.test.ts` | 列表/增删；local 覆盖合并；scope 过滤 |
-| skills | `test/skills.test.ts` | 描述读取；链接/卸载 symlink |
+| skills | `test/skills.test.ts` | 描述读取 + 三态 linkStatus；链接/卸载；Windows junction/copy 回退 |
 | sync | `test/sync.test.ts` | 规则生成 frontmatter；幂等清空；进度行 + MCP 同步 |
 | diff | `test/diff.test.ts` | identical；单/多 hunk 增删识别 |
+| ipc 校验 | `test/ipc-rules-validate.test.ts` | setRuleRequired 入参边界校验（null/原始类型/非法 tool） |
+| vault 桥接 | `test/vault-bridge.test.ts` | 缺 aiws 抛 `AiwsNotInstalled`；`--version` 桥接 |
+| sync 取消 | `test/sync-cancel.test.ts` | `syncRun` 中止后停止产出新行 |
+| renderer 冒烟 | `test/app.test.tsx` | 无仓库渲染管理页；有仓库渲染侧边栏 + tab |
 
-**验收标准**：`npm test` 输出 `pass 32 / fail 0`。
+**验收标准**：`npm test` 输出 `pass 61 / fail 0`。
 
 ### 1.3 测试追加规则
 
