@@ -29,7 +29,7 @@ memory_context_body() {
     [ "$(basename "$f")" = "TEMPLATE.md" ] && continue
     [ "$first" = "1" ] || printf '\n'
     first=0
-    awk 'BEGIN{c=0} /^---$/{c++; next} c>=2{print}' "$f"
+    awk 'BEGIN{c=0} /^---$/ && c<2 {c++; next} c>=2{print}' "$f"
   done
 }
 
@@ -106,14 +106,32 @@ memory_next_adr_number() {
   printf '%04d' "$((max + 1))"
 }
 
+# 将模板渲染到 out：把 {{ID}}/{{TITLE}}/{{DATE}} 占位符替换为 id/title/date。
+# 值经 ENVIRON 传入 awk 并用 index/substr 按字面拼接——不用 gsub/替换串转义：
+# 不同 awk 对替换串里 \ 的解释不一（gawk 折叠 \\，macOS BWK 不折叠），且 -v
+# 赋值会做转义处理；数据拼接可保证含 & 或 \ 的标题逐字保留。
+memory_expand_template() {
+  local template="$1" out="$2" id="$3" title="$4" date="$5"
+  ID="$id" TITLE="$title" DATE="$date" awk '
+    {
+      line = $0
+      t = "{{TITLE}}"; i = index(line, t)
+      if (i) line = substr(line, 1, i - 1) ENVIRON["TITLE"] substr(line, i + length(t))
+      t = "{{ID}}"; i = index(line, t)
+      if (i) line = substr(line, 1, i - 1) ENVIRON["ID"] substr(line, i + length(t))
+      t = "{{DATE}}"; i = index(line, t)
+      if (i) line = substr(line, 1, i - 1) ENVIRON["DATE"] substr(line, i + length(t))
+      print line
+    }
+  ' "$template" > "$out"
+}
+
 memory_new_adr() {
   local title="$1" n date out
   n="$(memory_next_adr_number)"
   date="$(date +%Y-%m-%d)"
   out="${MEMORY_DIR}/adr/${n}.md"
-  awk -v id="$n" -v title="$title" -v date="$date" '
-    { gsub(/\{\{ID\}\}/, id); gsub(/\{\{TITLE\}\}/, title); gsub(/\{\{DATE\}\}/, date); print }
-  ' "${MEMORY_DIR}/adr/TEMPLATE.md" > "$out"
+  memory_expand_template "${MEMORY_DIR}/adr/TEMPLATE.md" "$out" "$n" "$title" "$date"
   log_success "已创建 ADR：adr/${n}.md"
 }
 
@@ -121,9 +139,7 @@ memory_new_context() {
   local title="$1" id out
   id="$(printf '%s' "$title" | tr ' ' '-')"
   out="${MEMORY_DIR}/context/${id}.md"
-  awk -v id="$id" -v title="$title" '
-    { gsub(/\{\{ID\}\}/, id); gsub(/\{\{TITLE\}\}/, title); print }
-  ' "${MEMORY_DIR}/context/TEMPLATE.md" > "$out"
+  memory_expand_template "${MEMORY_DIR}/context/TEMPLATE.md" "$out" "$id" "$title" ""
   log_success "已创建 Context：context/${id}.md"
 }
 

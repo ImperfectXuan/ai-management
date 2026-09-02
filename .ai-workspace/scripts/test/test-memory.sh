@@ -116,6 +116,17 @@ run_aiws "$WS" memory new --type adr --title "端到端决策" >/dev/null 2>&1 |
 if [ -f "$WS/.ai-workspace/memory/adr/0001.md" ]; then t_pass "aiws_memory_new_end_to_end"; else t_fail "aiws_memory_new_end_to_end"; fi
 rm -rf "$WS"
 
+# 8b) 标题含 & 不被 gsub 破坏
+WS="$(new_memory_ws)"
+run_mem "$WS" memory_new adr "R&D 加密" >/dev/null 2>&1
+if grep -q '^title: R&D 加密' "$WS/.ai-workspace/memory/adr/0001.md" \
+  && ! grep -q '{{' "$WS/.ai-workspace/memory/adr/0001.md"; then
+  t_pass "memory_new_adr_escapes_ampersand_title"
+else
+  t_fail "memory_new_adr_escapes_ampersand_title"
+fi
+rm -rf "$WS"
+
 echo ""
 echo "pass $PASS / fail $FAIL"
 [ "$FAIL" -eq 0 ]
