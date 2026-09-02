@@ -53,6 +53,11 @@ ${BOLD}COMMANDS:${NC}
         remove <key>       Remove a secret
         audit              Show which tools use which secrets
 
+    ${GREEN}memory${NC}     Manage project memory (ADR / context / decisions)
+        list [--type <t>]  List memory entries
+        new --type <t> --title "..."  Create from template
+        show <path>        Show a memory file
+
     ${GREEN}rules${NC}       Rule versioning and change tracking
         status             Show rules changed since last sync
         history <id>       Show git history for a rule
@@ -90,6 +95,7 @@ ${BOLD}EXAMPLES:${NC}
     aiws import skills --dry-run  # Preview skill import
     aiws import mcp --from codex  # Import MCP from Codex
     aiws secrets set GITHUB_TOKEN # Set encrypted secret
+    aiws memory new --type adr --title "Use age encryption"   # 新建 ADR
 
 ${BOLD}ENVIRONMENT:${NC}
     AIWS_ROOT      Workspace root directory (default: git root)
@@ -537,6 +543,59 @@ cmd_rules() {
 }
 
 # ============================================================================
+# Memory Commands
+# ============================================================================
+
+cmd_memory() {
+  . "${SCRIPT_DIR}/lib/memory.sh"
+
+  local subcmd="${1:-list}"
+  shift || true
+
+  local type=""
+  local title=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --type)  type="$2"; shift 2 ;;
+      --title) title="$2"; shift 2 ;;
+      *) break ;;
+    esac
+  done
+
+  case "$subcmd" in
+    list)
+      memory_list "$type"
+      ;;
+    new)
+      if [ -z "$type" ] || [ -z "$title" ]; then
+        log_error "Usage: aiws memory new --type adr|context|decisions --title \"...\""
+        exit 1
+      fi
+      memory_new "$type" "$title"
+      ;;
+    show)
+      memory_show "$1"
+      ;;
+    --help|-h|help)
+      echo "Usage: aiws memory <list|new|show>"
+      echo ""
+      echo "管理项目记忆（ADR / context / decisions）。"
+      echo ""
+      echo "Commands:"
+      echo "  list [--type adr|context|decisions]   列出记忆条目"
+      echo "  new --type <t> --title \"...\"          从模板新建（adr 编号自增、decisions 追加）"
+      echo "  show <path>                          打印记忆文件（相对 memory/，如 adr/0001.md）"
+      ;;
+    *)
+      log_error "Unknown memory subcommand: $subcmd"
+      log_info "Available: list, new, show"
+      exit 1
+      ;;
+  esac
+}
+
+# ============================================================================
 # Secrets Commands
 # ============================================================================
 
@@ -735,6 +794,9 @@ main() {
       ;;
     rules)
       cmd_rules "$@"
+      ;;
+    memory)
+      cmd_memory "$@"
       ;;
     secrets)
       cmd_secrets "$@"
