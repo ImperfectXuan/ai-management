@@ -360,6 +360,63 @@ validate_secrets() {
 }
 
 # ============================================================================
+# Memory Validation
+# ============================================================================
+
+validate_memory() {
+  log_info "Checking memory..."
+
+  local t
+  for t in adr context decisions; do
+    if [ -f "${AIWS_DIR}/memory/${t}/TEMPLATE.md" ]; then
+      pass "Memory template exists: ${t}/TEMPLATE.md"
+    else
+      warn "Missing memory template: memory/${t}/TEMPLATE.md"
+    fi
+  done
+
+  # context 文件 frontmatter（id / title）
+  for f in "${AIWS_DIR}"/memory/context/*.md; do
+    [ -f "$f" ] || continue
+    [ "$(basename "$f")" = "TEMPLATE.md" ] && continue
+    local ctx_filename
+    ctx_filename="$(basename "$f")"
+    if [ "$(grep -c '^id:' "$f" || true)" = "0" ]; then warn "Missing 'id' in context: $ctx_filename"; fi
+    if [ "$(grep -c '^title:' "$f" || true)" = "0" ]; then warn "Missing 'title' in context: $ctx_filename"; fi
+  done
+
+  # ADR 文件 frontmatter（id / title / date / status）+ status 枚举
+  for f in "${AIWS_DIR}"/memory/adr/*.md; do
+    [ -f "$f" ] || continue
+    [ "$(basename "$f")" = "TEMPLATE.md" ] && continue
+    local adr_filename status_val
+    adr_filename="$(basename "$f")"
+    if [ "$(grep -c '^id:' "$f" || true)" = "0" ]; then warn "Missing 'id' in ADR: $adr_filename"; fi
+    if [ "$(grep -c '^title:' "$f" || true)" = "0" ]; then warn "Missing 'title' in ADR: $adr_filename"; fi
+    if [ "$(grep -c '^date:' "$f" || true)" = "0" ]; then warn "Missing 'date' in ADR: $adr_filename"; fi
+    status_val="$(grep -m1 '^status:' "$f" | sed 's/^status:[[:space:]]*//; s/[[:space:]]*$//')"
+    case "$status_val" in
+      proposed|accepted|deprecated|superseded) pass "ADR status valid: $adr_filename" ;;
+      *) warn "Invalid ADR status '$status_val' in: $adr_filename (expected proposed|accepted|deprecated|superseded)" ;;
+    esac
+  done
+
+  # decisions.md 条目须以 ## YYYY-MM-DD 开头
+  if [ -f "${AIWS_DIR}/memory/decisions/decisions.md" ]; then
+    if awk '
+      /^## / { if ($0 !~ /^## [0-9]{4}-[0-9]{2}-[0-9]{2} /) bad = 1 }
+      END { exit bad ? 1 : 0 }
+    ' "${AIWS_DIR}/memory/decisions/decisions.md"; then
+      pass "Decision entries format valid"
+    else
+      warn "decisions.md 存在不以 '## YYYY-MM-DD ' 开头的条目"
+    fi
+  fi
+
+  echo ""
+}
+
+# ============================================================================
 # Generated Files Validation
 # ============================================================================
 
@@ -468,6 +525,7 @@ main() {
   validate_mcp
   validate_skills
   validate_secrets
+  validate_memory
   validate_generated_files
   validate_drift
   

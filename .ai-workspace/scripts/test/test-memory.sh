@@ -218,5 +218,39 @@ fi
 rm -rf "$WS"
 
 echo ""
+echo "=== validate 记忆域测试 ==="
+
+# 13) 合法记忆域 validate 识别三套模板（输出含 "Memory template exists"）
+WS="$(new_memory_ws)"
+add_rules_and_mappings "$WS"
+OUT="$(run_aiws "$WS" validate 2>&1 || true)"
+if printf '%s\n' "$OUT" | grep -q 'Memory template exists: adr/TEMPLATE.md'; then
+  t_pass "validate_passes_valid_memory"
+else
+  t_fail "validate_passes_valid_memory"
+fi
+rm -rf "$WS"
+
+# 14) ADR 非法 status 触发 "Invalid ADR status" 告警
+WS="$(new_memory_ws)"
+add_rules_and_mappings "$WS"
+cat > "$WS/.ai-workspace/memory/adr/0001.md" <<'EOF'
+---
+id: 0001
+title: 坏状态
+date: 2026-09-01
+status: bogus
+---
+# 坏状态
+EOF
+OUT="$(run_aiws "$WS" validate 2>&1 || true)"
+if printf '%s\n' "$OUT" | grep -q 'Invalid ADR status'; then
+  t_pass "validate_flags_invalid_adr_status"
+else
+  t_fail "validate_flags_invalid_adr_status"
+fi
+rm -rf "$WS"
+
+echo ""
 echo "pass $PASS / fail $FAIL"
 [ "$FAIL" -eq 0 ]
