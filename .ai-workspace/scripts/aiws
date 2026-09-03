@@ -287,6 +287,9 @@ generate_tool_file() {
   local tool="$1"
   local target_scope="$2"
 
+  # memory context 注入依赖 memory.sh 的 memory_context_body/memory_has_context
+  . "${SCRIPT_DIR}/lib/memory.sh"
+
   # Cursor/Trae load per-rule files with glob-based on-demand semantics
   case "$tool" in
     cursor|trae)
@@ -333,9 +336,19 @@ $(cat "$rule_file")
       ;;
   esac
 
+  local context_body
+  context_body="$(memory_context_body)"
+
   {
     echo "$header"
     echo ""
+    if [ -n "$context_body" ]; then
+      echo "<!-- ===== 项目上下文（来自 .ai-workspace/memory/context/，由 aiws sync 注入）===== -->"
+      echo ""
+      echo "$context_body"
+      echo "<!-- ===== /项目上下文 ===== -->"
+      echo ""
+    fi
     echo "$rules_content"
   } > "$output_file"
 

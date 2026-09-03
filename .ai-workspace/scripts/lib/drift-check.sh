@@ -93,6 +93,10 @@ check_drift() {
     export AIWS_ROOT="$sandbox"
     set +e
     mkdir -p "${sandbox}/.cursor/rules" "${sandbox}/.trae/rules"
+    # 与 aiws sync 同源加载 memory 辅助：00-context 属生成文件，需纳入漂移比对
+    if [ -f "${AIWS_LIB_DIR}/memory.sh" ]; then
+      . "${AIWS_LIB_DIR}/memory.sh"
+    fi
     . "$gen_lib"
     generate_rule_files cursor "$target_scope" >/dev/null 2>&1
     generate_rule_files trae "$target_scope" >/dev/null 2>&1

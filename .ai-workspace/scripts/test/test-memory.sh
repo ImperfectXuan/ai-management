@@ -128,5 +128,95 @@ fi
 rm -rf "$WS"
 
 echo ""
+echo "=== context 注入测试 ==="
+
+# 在沙盒里铺 00-core 规则 + cursor/trae mapping，sync --only rules 才有的可消费
+add_rules_and_mappings() {
+  local ws="$1" tool
+  mkdir -p "$ws/.ai-workspace/rules/domains"
+  cat > "$ws/.ai-workspace/rules/00-core.md" <<'EOF'
+---
+id: "00-core"
+title: Core
+scope: all
+---
+# Core
+- Be explicit.
+EOF
+  for tool in cursor trae; do
+    mkdir -p "$ws/.ai-workspace/adapters/$tool"
+    {
+      printf 'tool: %s\n' "$tool"
+      printf 'rules:\n'
+      printf '  - source: rules/00-core.md\n'
+      printf '    required: true\n'
+    } > "$ws/.ai-workspace/adapters/$tool/mapping.yaml"
+  done
+}
+
+add_context() {
+  local ws="$1"
+  cat > "$ws/.ai-workspace/memory/context/project.md" <<'EOF'
+---
+id: project
+title: 项目上下文
+---
+# 沙盒项目
+## 用途
+测试注入。
+EOF
+}
+
+# 9) claude sync 注入 context 到 CLAUDE.md 头部
+WS="$(new_memory_ws)"
+add_rules_and_mappings "$WS"
+add_context "$WS"
+run_aiws "$WS" sync --only rules >/dev/null 2>&1 || true
+if grep -q '沙盒项目' "$WS/CLAUDE.md" && grep -q '项目上下文' "$WS/CLAUDE.md"; then
+  t_pass "sync_injects_context_into_claude"
+else
+  t_fail "sync_injects_context_into_claude"
+fi
+rm -rf "$WS"
+
+# 10) cursor sync 生成 00-context.mdc（alwaysApply + globs **/*）
+WS="$(new_memory_ws)"
+add_rules_and_mappings "$WS"
+add_context "$WS"
+run_aiws "$WS" sync --only rules >/dev/null 2>&1 || true
+if [ -f "$WS/.cursor/rules/00-context.mdc" ] \
+  && grep -q 'alwaysApply: true' "$WS/.cursor/rules/00-context.mdc" \
+  && grep -q '沙盒项目' "$WS/.cursor/rules/00-context.mdc"; then
+  t_pass "sync_generates_00_context_for_cursor"
+else
+  t_fail "sync_generates_00_context_for_cursor"
+fi
+rm -rf "$WS"
+
+# 11) context 为空时 no-op：不生成 00-context、CLAUDE.md 无上下文块
+WS="$(new_memory_ws)"
+add_rules_and_mappings "$WS"
+run_aiws "$WS" sync --only rules >/dev/null 2>&1 || true
+if [ ! -e "$WS/.cursor/rules/00-context.mdc" ] && ! grep -q '项目上下文' "$WS/CLAUDE.md"; then
+  t_pass "sync_no_context_is_noop"
+else
+  t_fail "sync_no_context_is_noop"
+fi
+rm -rf "$WS"
+
+# 12) 重复 sync 不把 00-context 备份成 .bak
+WS="$(new_memory_ws)"
+add_rules_and_mappings "$WS"
+add_context "$WS"
+run_aiws "$WS" sync --only rules >/dev/null 2>&1 || true
+run_aiws "$WS" sync --only rules >/dev/null 2>&1 || true
+if [ -f "$WS/.cursor/rules/00-context.mdc" ] && [ ! -e "$WS/.cursor/rules/00-context.mdc.bak" ]; then
+  t_pass "sync_does_not_backup_00_context"
+else
+  t_fail "sync_does_not_backup_00_context"
+fi
+rm -rf "$WS"
+
+echo ""
 echo "pass $PASS / fail $FAIL"
 [ "$FAIL" -eq 0 ]
