@@ -48,6 +48,7 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 | MCP | ⬜ 未评审 | — | — | 排期评审 |
 | 密钥保管库（vault） | ⬜ 未评审 | — | — | 排期评审 |
 | 双向导入（import） | — | — | ✅ `54d826b` 新增 25 用例 | MCP/vault 属于其依赖域 |
+| 记忆（memory） | ⬜ 未评审 | ✅ Task 1-4 落地 `ed8c4b3`→`6e9cd46` | ✅ 记忆域 shell 15 用例（CLI + context 注入 + validate） | 排期评审；TUI/Desktop 记忆页待规划（见 §6 P2） |
 
 ---
 
@@ -75,6 +76,7 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 
 | 完成时间 | 内容 | commit |
 |---|---|---|
+| 2026-09-03 | 记忆系统 Task 1-4 落地闭环（[计划](superpowers/plans/2026-09-01-memory-system.md) 5/5）：三套模板 + `aiws memory list/new/show`、sync 注入 `memory/context`（claude/codex 头部 + cursor/trae 00-context，纳入 drift 比对）、validate 记忆域校验；记忆域 shell 15 用例，全 shell 83 绿 + TUI 19 + electron 61 | `ed8c4b3` `3b8a9d5` `bba2293` `319244e` `6e9cd46` |
 | 2026-08-28 | Phase 2 两项核心：CI/CD 推送自动同步（`aiws ci` 工作流安装器 + `sync --only`）与规则版本化（sha256 manifest + 自动 CHANGELOG + `rules status/history`） | `02dbe18` `1df1b1e` `85e8d0b` `3cd1d61` |
 | 2026-08-27 | `aiws import rules` 反向导入引擎落地（cursor/trae 逐条转换、claude/codex 整文件导入、mapping 幂等登记、25 个测试） | `54d826b` |
 | 2026-08-28 | skills 域 B/C 阶段收尾：TUI/Desktop 补 tool+scope 交互、linkStatus 三态、公共链接层 links.ts（Windows junction/copy 回退）、skills.enabled 开关接通 sync、三端回归测试补齐（shell 9 + electron 61 + tui 19） | `5c3c26f` `095298b` `8bfcce4` `f149270` |
@@ -94,8 +96,8 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 ### P1 · MVP 后尽快
 - [ ] MCP 域代码评审（含 JSON/TOML 双引擎与 `${secret:}` 占位替换链路）
 - [ ] vault 域代码评审
-- [ ] ADR 模板和记忆系统（ROADMAP Phase 1 P1）
-- [ ] 项目上下文摘要（ROADMAP Phase 1 P1）
+- [x] ~~ADR 模板和记忆系统~~ ✅ 2026-09-03 完成（记忆系统 Task 1-4，见 §5）
+- [x] ~~项目上下文摘要~~ ✅ 2026-09-03 完成（context 注入各工具，见 §5）
 
 ### P2 · 带宽允许时
 - [ ] GitHub Copilot 适配器
@@ -124,5 +126,6 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 
 | 日期 | 变更 |
 |---|---|
+| 2026-09-03 | 记忆系统落地闭环（任务计划 5/5）：Task1-2 合并入 main 后，续做 Task3-4 —— sync 将 `memory/context` 注入各工具（claude/codex 单文件头部 + cursor/trae `00-context`）、validate 新增记忆域校验；drift-check 沙盒同源加载 memory.sh 使 00-context 参与漂移比对。记忆域 shell 测试扩至 15 用例，全套 shell 套件 83 用例 + TUI 19 + Electron 61 全绿；PROGRESS/ROADMAP 勾掉记忆与项目上下文摘要 |
 | 2026-08-28 | Phase 2 两项核心落地：`aiws ci` 工作流安装器（GitHub Actions push 自动同步）、`sync --only` 模块过滤、规则版本化引擎（manifest/CHANGELOG/status/history）；shell 新增 26 用例全绿，三套既有套件回归通过；顺手修复 mcp-sync 错误函数名 |
 | 2026-08-27 | 初版建立：整合 ROADMAP、rules/skills 两域评审结论、近期五次提交与 skills 修复计划实测状态 |

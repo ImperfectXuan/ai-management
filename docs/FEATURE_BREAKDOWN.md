@@ -153,17 +153,16 @@
 
 **事实来源**：`.ai-workspace/memory/{adr,context,decisions}/`。
 
-**端覆盖**：C 🟡 · T ❌ · D ❌
+**端覆盖**：C ✅ · T ❌ · D ❌
 
 | 能力 | 状态 | 备注 |
 |---|---|---|
-| 目录约定 + `.gitkeep` | ✅ | Phase 0 已就位 |
-| ADR 模板 | 🟡 | Roadmap Phase 1 P1，未确认落地 |
-| 项目上下文摘要 | 🟡 | Roadmap Phase 1 P1，未确认落地 |
-| 决策日志模板 | 🟡 | 同上 |
-| `aiws memory` 子命令 | ❌ | 当前无 CLI 入口 |
+| 目录约定 + 三套模板初始化 | ✅ | `ensure_workspace_structure` 建目录 + TEMPLATE.md（`ed8c4b3`） |
+| `aiws memory` 子命令（list / new / show） | ✅ | `memory.sh`；ADR 编号自增、decisions 追加、标题 `&`/`\` 逐字保留（`3b8a9d5` `bba2293`） |
+| context 注入 sync（claude/codex 头部 + cursor/trae 00-context） | ✅ | CLI sync 贯通；00-context 纳入漂移白名单（`319244e`） |
+| validate 记忆域校验（模板 / frontmatter / ADR status / decisions 格式） | ✅ | `validate_memory`（`6e9cd46`） |
+| Desktop core 规则生成接入 context 注入 | 🟡 | electron `sync.ts` 仅 cursor/trae 逐条生成，未注入 |
 | TUI / Desktop 记忆页 | ❌ | 未规划 |
-| 跨端注入到 rules / skills | ❌ | 未规划 |
 
 **边界与契约**：
 - 文件即事实来源（Markdown + YAML frontmatter）
@@ -171,10 +170,8 @@
 - 跨工具上下文保留（任何 AI 工具读取时都能看到）
 
 **TODO**
-- [ ] 落地 ADR / context / decisions 三套模板（`.ai-workspace/memory/*-template.md`）
-- [ ] `aiws memory list / new / show` 子命令
-- [ ] 记忆注入到 `CLAUDE.md` / `AGENTS.md` 头部（可选块）
-- [ ] Desktop 记忆页（时间线 + 标签筛选）
+- [ ] 记忆域代码评审
+- [ ] Desktop core 接入 context 注入 + 记忆页（时间线 + 标签筛选）
 
 ---
 
@@ -407,7 +404,7 @@
 - [ ] 错误聚合（sync 多步骤场景）
 
 ### P1 — 重要但未达 MVP 后
-- [ ] ADR / context / decisions 模板落地（记忆域）
+- [x] ~~ADR / context / decisions 模板落地（记忆域）~~ ✅ 2026-09-03（含 `aiws memory` CLI、sync 注入、validate）
 - [ ] `validate --json` 结构化输出
 - [ ] MCP schema 扩展（env / headers / timeout / transport）
 - [ ] Desktop / TUI 校验结果嵌入仪表盘
@@ -443,7 +440,7 @@
 | 技能 | ✅ | ✅ | ✅ |
 | MCP | ✅ | ✅ | ✅ |
 | 密钥 | ✅ 读写 | ✅ 只读 | ✅ 只读 |
-| 记忆 | 🟡 目录 | ❌ | ❌ |
+| 记忆 | ✅ | ❌ | ❌ |
 | 配置 | ✅ | ❌ | 🟡 |
 | 同步引擎 | ✅ | 🟡 | ✅ |
 | 反向导入 | ✅ mcp/skills/rules | ❌ | ❌ |
