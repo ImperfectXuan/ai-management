@@ -4,7 +4,7 @@ import assert from 'node:assert';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { listRules, setRuleRequired, ruleGlobs } from '../src/core/rules';
+import { listRules, setRuleRequired, ruleGlobs, ruleAppliesToTool } from '../src/core/rules';
 
 function makeWorkspace() {
   const root = mkdtempSync(path.join(tmpdir(), 'aiws-rules-'));
@@ -129,4 +129,30 @@ test('ruleGlobs 正文含 globs: 行不被误抓', () => {
     '',
   ].join('\n');
   assert.strictEqual(ruleGlobs(content, 'all'), '**/*', '正文里的 globs: 行不应被采用');
+});
+
+test('listRules 解析 tools 字段（内联 / 块列表 / 缺省）', async () => {
+  const root = makeWorkspace();
+  const aiws = path.join(root, '.ai-workspace');
+  writeFileSync(
+    path.join(aiws, 'rules', 'inline.md'),
+    '---\nid: inline\nscope: all\ntools: [cursor, trae]\n---\n# Inline\n'
+  );
+  writeFileSync(
+    path.join(aiws, 'rules', 'block.md'),
+    '---\nid: block\nscope: all\ntools:\n  - cursor\n  - trae\n---\n# Block\n'
+  );
+  const rules = await listRules(root);
+  assert.deepStrictEqual(rules.find((r) => r.id === 'inline')!.tools, ['cursor', 'trae']);
+  assert.deepStrictEqual(rules.find((r) => r.id === 'block')!.tools, ['cursor', 'trae']);
+  // 缺省（00-core 无 tools 字段）→ 空数组 = 全工具
+  assert.deepStrictEqual(rules.find((r) => r.id === '00-core')!.tools, []);
+});
+
+test('ruleAppliesToTool：空数组全工具，声明则按列表匹配', () => {
+  const anyRule = (tools: string[]) => ({ tools } as { tools: string[] });
+  assert.strictEqual(ruleAppliesToTool(anyRule([]), 'cursor'), true);
+  assert.strictEqual(ruleAppliesToTool(anyRule(['cursor']), 'cursor'), true);
+  assert.strictEqual(ruleAppliesToTool(anyRule(['cursor']), 'trae'), false);
+  assert.strictEqual(ruleAppliesToTool(anyRule(['cursor', 'trae']), 'trae'), true);
 });

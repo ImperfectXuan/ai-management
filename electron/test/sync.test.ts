@@ -5,6 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { generateRuleFiles, syncRun } from '../src/core/sync';
 
 function makeWorkspace() {
@@ -127,4 +128,45 @@ test('syncRun 产出进度行并完成 MCP 同步', async () => {
   assert.ok(lines.some((l) => l.includes('已生成')));
   const mcpOut = await fs.readFile(path.join(root, '.cursor', 'mcp.json'), 'utf8');
   assert.ok(mcpOut.includes('mcpServers'));
+});
+
+test('generateRuleFiles 按 tools 字段过滤（cursor-only 规则不生成到 trae）', async () => {
+  const root = makeWorkspace();
+  const aiws = path.join(root, '.ai-workspace');
+  writeFileSync(
+    path.join(aiws, 'rules', 'cursor-only.md'),
+    '---\nid: cursor-only\nscope: all\ntools: [cursor]\n---\n# CursorOnly\n'
+  );
+  const mapping = (tool: string) =>
+    `tool: ${tool}\nrules:\n  - source: rules/00-core.md\n    required: true\n  - source: rules/cursor-only.md\n    required: true\n`;
+  writeFileSync(path.join(aiws, 'adapters', 'cursor', 'mapping.yaml'), mapping('cursor'));
+  writeFileSync(path.join(aiws, 'adapters', 'trae', 'mapping.yaml'), mapping('trae'));
+
+  const c = await generateRuleFiles(root, 'cursor');
+  const t = await generateRuleFiles(root, 'trae');
+  assert.strictEqual(c.count, 2, 'cursor 生成 2 条（00-core + cursor-only）');
+  assert.strictEqual(t.count, 1, 'trae 生成 1 条（cursor-only 被 tools 过滤）');
+  assert.ok(!existsSync(path.join(root, '.trae', 'rules', 'cursor-only.md')));
+});
+
+test('generateRuleFiles tools 过滤后旧生成文件被备份而非残留', async () => {
+  const root = makeWorkspace();
+  const aiws = path.join(root, '.ai-workspace');
+  writeFileSync(
+    path.join(aiws, 'rules', 'cursor-only.md'),
+    '---\nid: cursor-only\nscope: all\ntools: [cursor]\n---\n# CursorOnly\n'
+  );
+  writeFileSync(
+    path.join(aiws, 'adapters', 'trae', 'mapping.yaml'),
+    'tool: trae\nrules:\n  - source: rules/00-core.md\n    required: true\n  - source: rules/cursor-only.md\n    required: true\n'
+  );
+  // 预置 trae 旧文件（此前无 tools 时生成过）
+  mkdirSync(path.join(root, '.trae', 'rules'), { recursive: true });
+  writeFileSync(path.join(root, '.trae', 'rules', 'cursor-only.md'), 'stale');
+
+  const { backedUp } = await generateRuleFiles(root, 'trae');
+  const files = await fs.readdir(path.join(root, '.trae', 'rules'));
+  assert.ok(files.includes('cursor-only.md.bak'), '旧文件应被备份为 .bak');
+  assert.ok(!files.includes('cursor-only.md'), '原文件应被移走');
+  assert.ok(backedUp.includes('cursor-only.md.bak'));
 });

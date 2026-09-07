@@ -1,7 +1,7 @@
 // electron/src/core/sync.ts
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { hasMappingSource, listRules } from './rules';
+import { hasMappingSource, listRules, ruleAppliesToTool } from './rules';
 import { loadConfig, getToolMcpPath } from './config';
 import { listMcp, mergeLocalMcp, getServersForScope, McpServersMap } from './mcp';
 
@@ -84,6 +84,7 @@ export async function generateRuleFiles(
     if (targetScope === 'project' && !rule.domain) continue;
     const rel = rule.domain ? `rules/domains/${rule.id}.md` : `rules/${rule.id}.md`;
     if (!hasMappingSource(mapping, rel)) continue;
+    if (!ruleAppliesToTool(rule, tool)) continue;
     expected.add(`${rule.id}${ext}`);
   }
 
@@ -97,6 +98,7 @@ export async function generateRuleFiles(
     if (targetScope === 'project' && !rule.domain) continue;
     const rel = rule.domain ? `rules/domains/${rule.id}.md` : `rules/${rule.id}.md`;
     if (!hasMappingSource(mapping, rel)) continue;
+    if (!ruleAppliesToTool(rule, tool)) continue;
 
     const srcFile = path.join(aiwsDir, 'rules', rule.domain ? 'domains' : '', `${rule.id}.md`);
     const content = await fs.readFile(srcFile, 'utf8');

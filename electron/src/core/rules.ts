@@ -16,6 +16,8 @@ export interface Rule {
   globs: string;
   requiredByTool: Record<PerFileTool, boolean>;
   domain: boolean;
+  // tools 字段：声明规则适用的工具集合；空数组 = 全工具（向后兼容）
+  tools: string[];
 }
 
 function splitLines(content: string): string[] {
@@ -64,6 +66,38 @@ function stripQuotes(value: string): string {
     }
   }
   return value;
+}
+
+// 解析 rules 的 tools 字段：内联 `tools: [a, b]` 或块列表 `tools:\n  - a`。
+// 无字段返回空数组（语义：适用所有工具）。复用 parseFrontmatter 与
+// getFrontmatterLines，与 globs 的两种写法解析保持一致。
+export function parseTools(content: string): string[] {
+  const inline = parseFrontmatter(content)['tools'];
+  if (inline) {
+    return inline
+      .replace(/^\[|\]$/g, '')
+      .split(',')
+      .map((t) => stripQuotes(t.trim()))
+      .filter(Boolean);
+  }
+  const fmLines = getFrontmatterLines(content);
+  const blockIdx = fmLines.findIndex((l) => /^tools:\s*$/.test(l));
+  if (blockIdx >= 0) {
+    const out: string[] = [];
+    for (let i = blockIdx + 1; i < fmLines.length; i++) {
+      const m = fmLines[i].match(/^\s*-\s*["']?(.+?)["']?\s*$/);
+      if (!m) break;
+      out.push(m[1]);
+    }
+    return out;
+  }
+  return [];
+}
+
+// 规则是否适用于某工具：tools 为空 = 全工具；否则 tool 必须在列表里
+export function ruleAppliesToTool(rule: { tools: string[] }, tool: string): boolean {
+  if (rule.tools.length === 0) return true;
+  return rule.tools.includes(tool);
 }
 
 export function ruleGlobs(fileContent: string, scope: string): string {
@@ -153,6 +187,7 @@ export async function listRules(root: string): Promise<Rule[]> {
         globs: ruleGlobs(content, scope),
         requiredByTool,
         domain,
+        tools: parseTools(content),
       });
     }
   }
