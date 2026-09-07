@@ -100,7 +100,6 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 - [x] ~~项目上下文摘要~~ ✅ 2026-09-03 完成（context 注入各工具，见 §5）
 
 ### P2 · 带宽允许时
-- [ ] GitHub Copilot 适配器
 - [ ] 按 tools 字段过滤规则
 - [ ] Phase 1.5 TUI 延后项：界面内编辑规则、validate --json 结构化输出、secrets 写操作、MCP 完整表单、细粒度 skill 链接
 - ~~CI/CD 推送时自动同步~~ ✅ 2026-08-28 完成（`aiws ci install`）

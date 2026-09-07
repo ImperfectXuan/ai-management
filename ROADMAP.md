@@ -28,7 +28,6 @@
 | Git pre-commit hook 集成 | P1 · ✅ 已完成 |
 | mapping.yaml 驱动的规则选择性包含 | P1 · ✅ 已完成 |
 | 规则反向导入（`aiws import rules`） | P2 · ✅ 已完成 |
-| GitHub Copilot 适配器 | P2 |
 | 按 tools 字段过滤规则 | P2 |
 
 ## Phase 1.5：可视化 TUI — ✅ 已完成

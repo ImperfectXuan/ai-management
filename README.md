@@ -31,7 +31,6 @@ AI Workspace 是位于仓库内的项目级基础设施层。它为规则、约�
 | Claude Code | ✅ 已实现 | `adapters/claude/` |
 | Cursor | ✅ 已实现 | `adapters/cursor/` |
 | Trae | ✅ 已实现 | `adapters/trae/` |
-| GitHub Copilot | 📋 Backlog | — |
 
 ## 快速开始
 

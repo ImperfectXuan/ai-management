@@ -53,8 +53,6 @@ AI Workspace 是嵌入项目仓库的基础设施层，为 **规则、约定、�
 | Cursor | `adapters/cursor/` | `.cursor/rules/*.mdc` + `.cursor/mcp.json` |
 | Trae | `adapters/trae/` | `.trae/rules/*.md` + `.trae/mcp.json` |
 
-> GitHub Copilot 适配器在 ROADMAP 中列为 Backlog。
-
 ## 5. 数据流
 
 ### 正向同步（`aiws sync`）

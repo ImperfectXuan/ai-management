@@ -286,10 +286,8 @@
 | Claude Code | ✅ | `adapters/claude/` | `CLAUDE.md` + `.mcp.json` |
 | Cursor | ✅ | `adapters/cursor/` | `.cursor/rules/*.mdc` + `.cursor/mcp.json` |
 | Trae | ✅ | `adapters/trae/` | `.trae/rules/*.md` + `.trae/mcp.json` |
-| GitHub Copilot | ❌ | — | Roadmap Backlog |
 
 **TODO**
-- [ ] GitHub Copilot 适配器（`adapters/copilot/`，输出 `.github/copilot-instructions.md` + mcp）
 - [ ] 适配器一致性 CI（自动校验每适配器 ≤ 50 行 / mapping 必填字段齐全）
 - [ ] 适配器模板的单元测试（mapping → 预期输出 fixture）
 
@@ -413,7 +411,6 @@
 ### P2 — 有价值、带宽允许时
 - [ ] 规则 `tools` 字段过滤
 - [ ] TUI / Desktop 逐工具 × 逐 scope 技能链接
-- [ ] GitHub Copilot 适配器
 - [ ] Desktop / TUI 密钥写入界面
 - [ ] TUI 编辑规则（多字段表单）
 - [ ] TUI MCP 完整表单
