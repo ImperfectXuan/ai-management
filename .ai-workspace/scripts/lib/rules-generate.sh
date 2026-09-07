@@ -142,6 +142,7 @@ generate_rule_files() {
     fi
     required="$(get_mapping_required "$mapping" "$rel")"
     [ -z "$required" ] && continue
+    rule_applies_to_tool "$rule_file" "$tool" || continue
     local rid
     rid="$(basename "$rule_file" .md)"
     expected="${expected}${rid}${ext}"$'\n'
@@ -208,6 +209,7 @@ generate_rule_files() {
       log_warn "Skipping ${rel} (not listed in ${tool} mapping)"
       continue
     fi
+    rule_applies_to_tool "$rule_file" "$tool" || continue
 
     read_rule_meta "$rule_file"
     if [ "$required" = "true" ]; then

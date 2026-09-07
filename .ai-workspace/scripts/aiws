@@ -305,6 +305,7 @@ generate_tool_file() {
   for rule_file in "${AIWS_DIR}"/rules/*.md; do
     [ -f "$rule_file" ] || continue
     is_rule_file "$rule_file" || continue
+    rule_applies_to_tool "$rule_file" "$tool" || continue
     rules_content="${rules_content}
 $(cat "$rule_file")
 "
@@ -314,6 +315,7 @@ $(cat "$rule_file")
   if [ -d "${AIWS_DIR}/rules/domains" ]; then
     for rule_file in "${AIWS_DIR}"/rules/domains/*.md; do
       [ -f "$rule_file" ] || continue
+      rule_applies_to_tool "$rule_file" "$tool" || continue
       rules_content="${rules_content}
 $(cat "$rule_file")
 "

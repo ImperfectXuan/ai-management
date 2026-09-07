@@ -360,6 +360,41 @@ is_rule_file() {
 }
 
 # ============================================================================
+# Rule `tools` Field Filter (Phase 1 P2)
+# ============================================================================
+
+# 读规则 frontmatter 的 tools 字段（内联 `tools: [a, b]` 或块列表 `- a`），
+# 输出空格分隔工具名；无字段或值为空时输出空串。
+# tools 语义：空 = 适用所有工具（向后兼容，现有规则均无此字段）。
+rule_tools() {
+  local file="$1" inline
+  inline="$(grep -m1 '^tools:' "$file" | sed 's/^tools:[[:space:]]*//')"
+
+  # 块列表形式：`tools:` 独占一行，后续 `  - item` 行
+  if [ -z "$inline" ]; then
+    awk '/^tools:[[:space:]]*$/{t=1; next}
+         t && /^[[:space:]]*-[[:space:]]/{line=$0; sub(/^[[:space:]]*-[[:space:]]*"?/, "", line); sub(/"?[[:space:]]*$/, "", line); print line; next}
+         t && /^[[:space:]]*$/{next}
+         t{exit}' "$file"
+    return
+  fi
+
+  # 内联形式：[cursor, trae] 或 "cursor, trae" 或 cursor,trae
+  printf '%s\n' "$inline" | tr -d '[]"' | tr ',' ' '
+}
+
+# 规则是否适用于某工具：tools 为空 = 全工具；否则 tool 必须出现在列表里
+rule_applies_to_tool() {
+  local file="$1" tool="$2" t tools
+  tools="$(rule_tools "$file")"
+  [ -z "$tools" ] && return 0
+  for t in $tools; do
+    [ "$t" = "$tool" ] && return 0
+  done
+  return 1
+}
+
+# ============================================================================
 # Initialization
 # ============================================================================
 
