@@ -36,7 +36,7 @@
 | 列表 / 装载开关 | ✅ | TUI rules 屏、Desktop rules 页面；`setRuleRequired` 写入 `mapping.yaml` |
 | mapping 驱动的选择性包含 | ✅ | Phase 1 已完成；`required: true/false` 驱动 |
 | 按 `scope` 字段过滤（all / csharp / vue …） | ✅ | 工具原生文件生成阶段生效 |
-| 按 `tools` 字段过滤 | 🟡 | Roadmap P2，未明确完成点 |
+| 按 `tools` 字段过滤 | ✅ | 2026-09-07 三端落地（内联/块列表，缺省全工具，与 mapping AND） |
 | 规则编辑视图（多字段表单） | ❌ | TUI/Desktop 延后项 |
 | 规则反向导入（`aiws import rules`） | ✅ | cursor/trae 逐条转换、claude/codex 整文件导入 |
 | 规则版本化 / 变更追踪 | ✅ | sha256 manifest + 自动 CHANGELOG + `rules status/history` |
@@ -47,7 +47,6 @@
 - 禁止：规范层写工具特定规则；手动编辑生成文件
 
 **TODO**
-- [ ] 落实 `tools` 字段过滤规则（ROADMAP Phase 1 P2）
 - [ ] 规则编辑视图（TUI 多字段表单 + Desktop 详情面板）
 
 ---
@@ -409,7 +408,7 @@
 - [ ] 死链检测（rules / skills）
 
 ### P2 — 有价值、带宽允许时
-- [ ] 规则 `tools` 字段过滤
+- [x] ~~规则 `tools` 字段过滤~~ ✅ 2026-09-07
 - [ ] TUI / Desktop 逐工具 × 逐 scope 技能链接
 - [ ] Desktop / TUI 密钥写入界面
 - [ ] TUI 编辑规则（多字段表单）

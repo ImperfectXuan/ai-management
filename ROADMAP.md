@@ -19,7 +19,7 @@
 | 加密密钥保管库（age + TOTP 2FA） | ✅ 完成 |
 | 双向同步（`aiws import`） | ✅ 完成 |
 
-## Phase 1：增强 — 进行中
+## Phase 1：增强 — ✅ 已完成
 
 | 任务 | 优先级 |
 |---|---|
@@ -28,7 +28,7 @@
 | Git pre-commit hook 集成 | P1 · ✅ 已完成 |
 | mapping.yaml 驱动的规则选择性包含 | P1 · ✅ 已完成 |
 | 规则反向导入（`aiws import rules`） | P2 · ✅ 已完成 |
-| 按 tools 字段过滤规则 | P2 |
+| 按 tools 字段过滤规则 | P2 · ✅ 已完成（2026-09-07：CLI + Electron + validate 三端） |
 
 ## Phase 1.5：可视化 TUI — ✅ 已完成
 

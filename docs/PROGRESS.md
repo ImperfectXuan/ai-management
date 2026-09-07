@@ -29,7 +29,7 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 | 阶段 | 范围 | 状态 |
 |---|---|---|
 | Phase 0 | 基础设施：适配器 ×4、sync/validate、CLI 入口、MCP/Skills 同步引擎、密钥保管库、双向同步 | ✅ 完成 |
-| Phase 1 | 增强：ADR 记忆系统、项目上下文摘要、pre-commit 集成等 | 🔶 进行中 |
+| Phase 1 | 增强：ADR 记忆系统、项目上下文摘要、pre-commit 集成等 | ✅ 完成（2026-09-07 最后一项 tools 字段过滤落地） |
 | Phase 1.5 | 可视化 TUI（Ink，六页） | ✅ 完成（增强项延后，见 §6） |
 | Phase 1.6 | Desktop 独立 macOS 应用（Electron） | ✅ 完成 |
 | Phase 2 | 自动化与生态：CI/CD 自动同步、规则版本化 | ✅ 完成（两项核心；模板提取/脚手架见 §6 P3） |
@@ -76,6 +76,7 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 
 | 完成时间 | 内容 | commit |
 |---|---|---|
+| 2026-09-07 | 规则 `tools` 字段过滤三端落地：common.sh `rule_tools`/`rule_applies_to_tool`、cursor/trae 逐条 + claude/codex 单文件统一过滤、Electron core `parseTools`/`ruleAppliesToTool`、validate 校验非法 tool 值；新增 test-rules-tools.sh（5 用例）+ electron 4 用例，全 shell 88 绿 + electron 65 + TUI 19 | `eae4b6f` `93edfbe` `c2ef7e5` |
 | 2026-09-03 | 记忆系统 Task 1-4 落地闭环（[计划](superpowers/plans/2026-09-01-memory-system.md) 5/5）：三套模板 + `aiws memory list/new/show`、sync 注入 `memory/context`（claude/codex 头部 + cursor/trae 00-context，纳入 drift 比对）、validate 记忆域校验；记忆域 shell 15 用例，全 shell 83 绿 + TUI 19 + electron 61 | `ed8c4b3` `3b8a9d5` `bba2293` `319244e` `6e9cd46` |
 | 2026-08-28 | Phase 2 两项核心：CI/CD 推送自动同步（`aiws ci` 工作流安装器 + `sync --only`）与规则版本化（sha256 manifest + 自动 CHANGELOG + `rules status/history`） | `02dbe18` `1df1b1e` `85e8d0b` `3cd1d61` |
 | 2026-08-27 | `aiws import rules` 反向导入引擎落地（cursor/trae 逐条转换、claude/codex 整文件导入、mapping 幂等登记、25 个测试） | `54d826b` |
@@ -100,7 +101,7 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 - [x] ~~项目上下文摘要~~ ✅ 2026-09-03 完成（context 注入各工具，见 §5）
 
 ### P2 · 带宽允许时
-- [ ] 按 tools 字段过滤规则
+- [x] ~~按 tools 字段过滤规则~~ ✅ 2026-09-07 完成
 - [ ] Phase 1.5 TUI 延后项：界面内编辑规则、validate --json 结构化输出、secrets 写操作、MCP 完整表单、细粒度 skill 链接
 - ~~CI/CD 推送时自动同步~~ ✅ 2026-08-28 完成（`aiws ci install`）
 
@@ -125,6 +126,7 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 
 | 日期 | 变更 |
 |---|---|
+| 2026-09-07 | Phase 1 收尾：落地最后一项「按 `tools` 字段过滤规则」——common.sh 新增 `rule_tools`/`rule_applies_to_tool`，CLI 与 Electron core 统一过滤（内联/块列表、缺省全工具、与 mapping AND），validate 校验非法 tool 值；新增 test-rules-tools.sh（5 用例）+ electron 4 用例，全 shell 88 绿 + Electron 65 + TUI 19；Phase 1 全部完成 |
 | 2026-09-03 | 记忆系统落地闭环（任务计划 5/5）：Task1-2 合并入 main 后，续做 Task3-4 —— sync 将 `memory/context` 注入各工具（claude/codex 单文件头部 + cursor/trae `00-context`）、validate 新增记忆域校验；drift-check 沙盒同源加载 memory.sh 使 00-context 参与漂移比对。记忆域 shell 测试扩至 15 用例，全套 shell 套件 83 用例 + TUI 19 + Electron 61 全绿；PROGRESS/ROADMAP 勾掉记忆与项目上下文摘要 |
 | 2026-08-28 | Phase 2 两项核心落地：`aiws ci` 工作流安装器（GitHub Actions push 自动同步）、`sync --only` 模块过滤、规则版本化引擎（manifest/CHANGELOG/status/history）；shell 新增 26 用例全绿，三套既有套件回归通过；顺手修复 mcp-sync 错误函数名 |
 | 2026-08-27 | 初版建立：整合 ROADMAP、rules/skills 两域评审结论、近期五次提交与 skills 修复计划实测状态 |
