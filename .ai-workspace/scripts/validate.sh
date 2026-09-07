@@ -152,7 +152,17 @@ validate_rules() {
     if grep -qiE '(tell codex|tell claude|for cursor|for trae)' "$rule_file"; then
       warn "Tool-specific reference in canonical rule: $filename"
     fi
-    
+
+    # tools 字段值必须 ∈ SUPPORTED_TOOLS，非法值 fail-fast 告警
+    local tools_val t
+    tools_val="$(rule_tools "$rule_file")"
+    for t in $tools_val; do
+      case " $SUPPORTED_TOOLS " in
+        *" $t "*) ;;
+        *) warn "Invalid tool '$t' in tools field: $filename (expected: $SUPPORTED_TOOLS)" ;;
+      esac
+    done
+
     pass "Rule checked: $filename"
   done
   

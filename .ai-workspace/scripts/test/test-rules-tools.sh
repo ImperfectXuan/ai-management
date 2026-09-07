@@ -117,6 +117,25 @@ else
 fi
 rm -rf "$WS"
 
+# 5) validate 非法 tool 值触发告警
+WS="$(new_workspace)"
+cat > "$WS/.ai-workspace/rules/bad-tools.md" <<'EOF'
+---
+id: bad-tools
+title: BadTools
+scope: all
+tools: [cursor, nope]
+---
+# BAD_TOOLS_MARKER
+EOF
+OUT="$(run_aiws "$WS" validate 2>&1 || true)"
+if printf '%s\n' "$OUT" | grep -q 'Invalid tool'; then
+  t_pass "validate_flags_invalid_tool"
+else
+  t_fail "validate_flags_invalid_tool"
+fi
+rm -rf "$WS"
+
 echo ""
 echo "pass $PASS / fail $FAIL"
 [ "$FAIL" -eq 0 ]
