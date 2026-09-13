@@ -9,6 +9,28 @@
 | [SPEC.md](SPEC.md) | **项目总体 spec**——是什么、怎么工作、三个交付物、目录结构 |
 | [FEATURE_BREAKDOWN.md](FEATURE_BREAKDOWN.md) | **功能面拆解**——按业务域（规则/技能/MCP/密钥/记忆/配置）+ 横切能力梳理现状、端覆盖、TODO |
 | [TESTING.md](TESTING.md) | **逐步验证测试指导**——按 TUI/Desktop 每个 task 给出具体测试用例 |
+| [manual-testing/](manual-testing/README.md) | **人工系统测试手册**——面向测试者的按功能切面逐步验收（上线验收标准） |
+
+## 人工测试（manual-testing/）
+
+面向「仅懂概念」的测试者的完整人工验收手册，按功能切面拆分为文档系列，从环境准备到上线验收逐篇执行：
+
+| 文档 | 切面 |
+|---|---|
+| [manual-testing/README.md](manual-testing/README.md) | 总纲：测试对象、执行顺序、验收标准速查 |
+| [00-environment.md](manual-testing/00-environment.md) | 环境准备与临时仓库约定 |
+| [01-cli-basics.md](manual-testing/01-cli-basics.md) | CLI 基础 + setup + validate |
+| [02-rules.md](manual-testing/02-rules.md) | 规则 |
+| [03-skills.md](manual-testing/03-skills.md) | 技能 |
+| [04-mcp.md](manual-testing/04-mcp.md) | MCP |
+| [05-secrets.md](manual-testing/05-secrets.md) | 密钥 |
+| [06-memory.md](manual-testing/06-memory.md) | 记忆 |
+| [07-sync.md](manual-testing/07-sync.md) | 正向同步 |
+| [08-import.md](manual-testing/08-import.md) | 反向导入 |
+| [09-ci-hooks.md](manual-testing/09-ci-hooks.md) | CI 与 pre-commit 钩子 |
+| [10-tui.md](manual-testing/10-tui.md) | TUI 界面 |
+| [11-desktop.md](manual-testing/11-desktop.md) | Desktop 界面 |
+| [12-acceptance.md](manual-testing/12-acceptance.md) | 自动化回归 + 上线验收清单 |
 
 ## 参考（reference/）
 

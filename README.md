@@ -171,6 +171,7 @@ aiws import mcp --from codex      # 从 Codex 导入 MCP
 |---|---|
 | [总体 Spec](docs/SPEC.md) | 项目定位、架构、三交付物、目录结构 |
 | [测试指导](docs/TESTING.md) | 按 task 逐步验证的测试用例 |
+| [人工测试手册](docs/manual-testing/README.md) | 面向测试者的按功能切面逐步验收（上线验收标准） |
 | [文档索引](docs/README.md) | 全部文档的导航 |
 | [架构设计](docs/reference/ARCHITECTURE.md) | 系统设计、分层与数据流 |
 | [设计哲学](docs/reference/DESIGN_PHILOSOPHY.md) | 原则、权衡与理由 |
