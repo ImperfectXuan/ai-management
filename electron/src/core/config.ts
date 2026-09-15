@@ -1,8 +1,9 @@
 // electron/src/core/config.ts
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { SUPPORTED_TOOLS } from '../shared/tools';
 
-export const SUPPORTED_TOOLS = ['codex', 'claude', 'cursor', 'trae'] as const;
+export { SUPPORTED_TOOLS } from '../shared/tools';
 
 export interface WorkspaceConfig {
   version: string;

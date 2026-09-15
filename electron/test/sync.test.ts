@@ -170,3 +170,26 @@ test('generateRuleFiles tools 过滤后旧生成文件被备份而非残留', as
   assert.ok(!files.includes('cursor-only.md'), '原文件应被移走');
   assert.ok(backedUp.includes('cursor-only.md.bak'));
 });
+
+test('generateRuleFiles 传入 project scope 仍生成核心规则且不备份', async () => {
+  const root = makeWorkspace();
+  const aiws = path.join(root, '.ai-workspace');
+  writeFileSync(
+    path.join(aiws, 'rules', 'domains', 'vue3.md'),
+    '---\nid: vue3\ntitle: Vue\nscope: vue\n---\n# Vue\n'
+  );
+  writeFileSync(
+    path.join(aiws, 'adapters', 'cursor', 'mapping.yaml'),
+    'tool: cursor\nrules:\n  - source: rules/00-core.md\n    required: true\n  - source: rules/domains/vue3.md\n    required: false\n'
+  );
+
+  await generateRuleFiles(root, 'cursor');
+  const { count, backedUp } = await generateRuleFiles(root, 'cursor', 'project');
+  const files = await fs.readdir(path.join(root, '.cursor', 'rules'));
+
+  assert.ok(files.includes('00-core.mdc'), '核心规则应仍在');
+  assert.ok(!files.includes('00-core.mdc.bak'), '核心规则不应被备份');
+  assert.ok(files.includes('vue3.mdc'), '领域规则应生成');
+  assert.strictEqual(count, 2);
+  assert.ok(!backedUp.some((name) => name.startsWith('00-core')));
+});

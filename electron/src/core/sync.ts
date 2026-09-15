@@ -77,11 +77,13 @@ export async function generateRuleFiles(
 
   const rules = await listRules(root);
 
+  // --scope 只约束 MCP/技能写入位置；规则始终生成到仓库内 .cursor/.trae，
+  // 不得按 core/domain 切割，否则 project 会把核心规则备份成 .bak。
+  void targetScope;
+
   // 第一遍：算出本次会生成的文件名集合，作为白名单
   const expected = new Set<string>();
   for (const rule of rules) {
-    if (targetScope === 'global' && rule.domain) continue;
-    if (targetScope === 'project' && !rule.domain) continue;
     const rel = rule.domain ? `rules/domains/${rule.id}.md` : `rules/${rule.id}.md`;
     if (!hasMappingSource(mapping, rel)) continue;
     if (!ruleAppliesToTool(rule, tool)) continue;
@@ -94,8 +96,6 @@ export async function generateRuleFiles(
   // 第二遍：生成（writeFile 会覆盖白名单中的同名文件，无需先删）
   let count = 0;
   for (const rule of rules) {
-    if (targetScope === 'global' && rule.domain) continue;
-    if (targetScope === 'project' && !rule.domain) continue;
     const rel = rule.domain ? `rules/domains/${rule.id}.md` : `rules/${rule.id}.md`;
     if (!hasMappingSource(mapping, rel)) continue;
     if (!ruleAppliesToTool(rule, tool)) continue;

@@ -2,7 +2,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { invoke } from '../api';
 import { IPC } from '../../shared/ipc';
-import { PER_FILE_TOOLS, type PerFileTool, type Rule } from '../../core/rules';
+import { PER_FILE_TOOLS, type PerFileTool } from '../../shared/tools';
+import type { Rule } from '../../core/rules';
 
 const TOOL_LABELS: Record<PerFileTool, string> = {
   cursor: 'Cursor',

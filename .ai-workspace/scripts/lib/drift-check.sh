@@ -4,7 +4,9 @@
 # Requires: common.sh sourced first (AIWS_ROOT / AIWS_LIB_DIR), rules-generate.sh
 # will be sourced lazily by check_drift.
 #
-# 用法: check_drift [scope]   scope 为空 = 全部；global = 仅 canonical；project = 仅 domain
+# 用法: check_drift [scope]
+# scope 传给 generate_rule_files 以保持调用签名；规则文件始终全量生成。
+# --scope 只约束 MCP/技能写入位置，不按核心/领域切割规则。
 #
 # 返回码: 0 无漂移 | 1 有漂移 | 2 环境错误
 #

@@ -136,6 +136,39 @@ else
 fi
 rm -rf "$WS"
 
+# 6) --scope project 只限制 MCP/技能写入位置，不得把核心规则备份掉
+WS="$(new_workspace)"
+cat > "$WS/.ai-workspace/rules/domains/vue3.md" <<'EOF'
+---
+id: vue3
+title: Vue
+scope: vue
+---
+# VUE_MARKER
+EOF
+{
+  printf 'tool: cursor\n'
+  printf 'rules:\n'
+  printf '  - source: rules/00-core.md\n'
+  printf '    required: true\n'
+  printf '  - source: rules/cursor-only.md\n'
+  printf '    required: true\n'
+  printf '  - source: rules/trae-only.md\n'
+  printf '    required: true\n'
+  printf '  - source: rules/domains/vue3.md\n'
+  printf '    required: false\n'
+} > "$WS/.ai-workspace/adapters/cursor/mapping.yaml"
+run_aiws "$WS" sync --only rules >/dev/null 2>&1 || true
+run_aiws "$WS" sync --only rules --scope project >/dev/null 2>&1 || true
+if [ -f "$WS/.cursor/rules/00-core.mdc" ] \
+  && [ ! -e "$WS/.cursor/rules/00-core.mdc.bak" ] \
+  && [ -f "$WS/.cursor/rules/vue3.mdc" ]; then
+  t_pass "sync_scope_project_keeps_core_rules"
+else
+  t_fail "sync_scope_project_keeps_core_rules"
+fi
+rm -rf "$WS"
+
 echo ""
 echo "pass $PASS / fail $FAIL"
 [ "$FAIL" -eq 0 ]

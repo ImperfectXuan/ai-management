@@ -1,14 +1,11 @@
 // electron/src/core/rules.ts
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { SUPPORTED_TOOLS } from './config';
+import { PER_FILE_TOOLS, type PerFileTool } from '../shared/tools';
 import { ErrorCodes, WorkspaceError } from './errors';
 
-export type SupportedTool = typeof SUPPORTED_TOOLS[number];
-
-// 当前仅 cursor / trae 有 per-rule mapping;其它工具走单文件模式,无 required 维度
-export type PerFileTool = 'cursor' | 'trae';
-export const PER_FILE_TOOLS: readonly PerFileTool[] = ['cursor', 'trae'];
+export type { PerFileTool, SupportedTool } from '../shared/tools';
+export { PER_FILE_TOOLS } from '../shared/tools';
 
 export interface Rule {
   id: string;

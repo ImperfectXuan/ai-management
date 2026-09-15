@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { invoke } from '../api';
 import { IPC } from '../../shared/ipc';
-import { SUPPORTED_TOOLS } from '../../core/config';
+import { SUPPORTED_TOOLS } from '../../shared/tools';
 import type { Skill, SkillLinkState } from '../../core/skills';
 
 const TOOL_LABELS: Record<string, string> = {

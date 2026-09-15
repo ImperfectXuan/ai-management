@@ -107,6 +107,7 @@ read_rule_meta() {
 
 generate_rule_files() {
   local tool="$1" target_scope="$2"
+  # target_scope 仅用于日志；--scope 约束 MCP/技能路径，不按 core/domain 过滤规则。
   local ext=".mdc" out_dir="" mapping rel required
   local count=0 backed_up=""
 
@@ -129,12 +130,6 @@ generate_rule_files() {
   for rule_file in "${AIWS_DIR}"/rules/*.md "${AIWS_DIR}"/rules/domains/*.md; do
     [ -f "$rule_file" ] || continue
     is_rule_file "$rule_file" || continue
-    if [ "$target_scope" = "global" ] && is_domain_rule "$rule_file"; then
-      continue
-    fi
-    if [ "$target_scope" = "project" ] && ! is_domain_rule "$rule_file"; then
-      continue
-    fi
     if is_domain_rule "$rule_file"; then
       rel="rules/domains/$(basename "$rule_file")"
     else
@@ -189,14 +184,6 @@ generate_rule_files() {
   for rule_file in "${AIWS_DIR}"/rules/*.md "${AIWS_DIR}"/rules/domains/*.md; do
     [ -f "$rule_file" ] || continue
     is_rule_file "$rule_file" || continue
-
-    # Scope filter: global = canonical rules only, project = domain rules only
-    if [ "$target_scope" = "global" ] && is_domain_rule "$rule_file"; then
-      continue
-    fi
-    if [ "$target_scope" = "project" ] && ! is_domain_rule "$rule_file"; then
-      continue
-    fi
 
     if is_domain_rule "$rule_file"; then
       rel="rules/domains/$(basename "$rule_file")"
