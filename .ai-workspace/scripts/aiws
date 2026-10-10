@@ -76,6 +76,16 @@ ${BOLD}COMMANDS:${NC}
         install            Install .github/workflows/aiws-sync.yml (idempotent)
         uninstall          Remove the aiws-managed workflow
 
+    ${GREEN}intake${NC}      Multi-source asset intake (scan/compare/plan/apply/rollback/deploy)
+        scan               Read-only multi-source scan (preview)
+        compare            Compare scan batch against repo
+        plan               Generate review plan from decisions
+        apply              Apply review plan to repo
+        rollback           Revert a batch's own changes (skips later edits)
+        deploy             Copy assets to target projects
+        check              Three-way update check
+        status             Show batch/plan status
+
 ${BOLD}OPTIONS:${NC}
     --tool <name>    Target specific tool (codex|claude|cursor|trae)
     --scope <scope>  Target specific scope (global|project)
@@ -755,6 +765,708 @@ cmd_import() {
 }
 
 # ============================================================================
+# Intake Command (multi-source asset intake)
+# ============================================================================
+
+cmd_intake() {
+  local subcmd="${1:-help}"
+  shift || true
+
+  case "$subcmd" in
+    scan)
+      cmd_intake_scan "$@"
+      ;;
+    compare)
+      cmd_intake_compare "$@"
+      ;;
+    plan)
+      cmd_intake_plan "$@"
+      ;;
+    apply)
+      cmd_intake_apply "$@"
+      ;;
+    rollback)
+      cmd_intake_rollback "$@"
+      ;;
+    status)
+      cmd_intake_status "$@"
+      ;;
+    model)
+      cmd_intake_model "$@"
+      ;;
+    help|--help|-h|"")
+      echo ""
+      log_info "Usage: aiws intake <scan|compare|plan|apply|rollback|deploy|check|status> [options]"
+      echo ""
+      log_info "Scan (read-only multi-source scan):"
+      printf "  ${CYAN}--repo <path>${NC}        Repo (总库) path (required)\n"
+      printf "  ${CYAN}--source <spec>${NC}      Source: <path>[:tool[:scope]] (repeatable)\n"
+      printf "  ${CYAN}                        tool: codex|claude|cursor|trae|auto (default auto)\n"
+      printf "  ${CYAN}                        scope: project|global (default project)\n"
+      printf "  ${CYAN}--manual-file <path>${NC}  Manual rule file (repeatable)\n"
+      printf "  ${CYAN}--manual-skill <path>${NC} Manual skill directory (repeatable)\n"
+      printf "  ${CYAN}--out-dir <path>${NC}     Batch output directory (default: <repo>/.ai-workspace/intake/batches/)\n"
+      printf "  ${CYAN}--cancel-file <path>${NC} Cancel file path (touch to cancel)\n"
+      printf "  ${CYAN}--json${NC}                JSON output to stdout\n"
+      echo ""
+      log_info "Examples:"
+      printf "  aiws intake scan --repo ~/my-repo --source ~/project-a --source ~/.cursor:cursor:global\n"
+      printf "  aiws intake scan --repo ~/my-repo --source ~/project-a:cursor:project --manual-file ~/notes/rule.md\n"
+      echo ""
+      log_info "Compare (确定性比较，只写本地候选记录):"
+      printf "  ${CYAN}--repo <path>${NC}        Repo (总库) path (required)\n"
+      printf "  ${CYAN}--batch <id>${NC}         Scan batch id (required)\n"
+      printf "  ${CYAN}--json${NC}                JSON output to stdout\n"
+      echo ""
+      log_info "Examples:"
+      printf "  aiws intake compare --repo ~/my-repo --batch batch-20261010-120000-ab12cd\n"
+      echo ""
+      log_info "Plan / Apply (人工审核计划与增量入库):"
+      printf "  ${CYAN}--repo <path>${NC}        Repo (总库) path (required)\n"
+      printf "  ${CYAN}--batch <id>${NC}         Scan batch id\n"
+      printf "  ${CYAN}--decisions <file>${NC}   Human decisions file (plan)\n"
+      printf "  ${CYAN}--plan <file|id>${NC}     Review plan file or plan id (apply)\n"
+      printf "  ${CYAN}--resume${NC}             Continue a partial apply\n"
+      printf "  ${CYAN}--cancel-file <path>${NC} Cancel file path (apply)\n"
+      printf "  ${CYAN}--apply <id>${NC}         Apply id (rollback)\n"
+      printf "  ${CYAN}--json${NC}                JSON output to stdout\n"
+      echo ""
+      log_info "Examples:"
+      printf "  aiws intake plan --repo ~/my-repo --batch <id> --decisions decisions.json\n"
+      printf "  aiws intake apply --repo ~/my-repo --plan ~/my-repo/.ai-workspace/intake/plans/<plan-id>.json\n"
+      printf "  aiws intake status --repo ~/my-repo --plan <plan-id>\n"
+      printf "  aiws intake rollback --repo ~/my-repo --apply <apply-id>\n"
+      echo ""
+      log_info "Model (AI 辅助整理边界；无配置时整条人工闭环不受影响):"
+      printf "  ${CYAN}--base-url <url>${NC}     OpenAI-compatible base URL (含版本段，如 http://localhost:11434/v1)\n"
+      printf "  ${CYAN}--model <name>${NC}       Model name\n"
+      printf "  ${CYAN}--credential-ref <key>${NC} Vault key name (null 表示本地服务无需凭据)\n"
+      printf "  ${CYAN}--no-credential${NC}      Clear credential reference (local services)\n"
+      printf "  ${CYAN}--candidate <id>${NC}     Candidate id (repeatable, prepare)\n"
+      printf "  ${CYAN}--request <id>${NC}       Request id (send/show)\n"
+      printf "  ${CYAN}--batch <n>${NC}          Batch index (send；缺省发送全部已确认批次)\n"
+      printf "  ${CYAN}--with-repo${NC}          Include repo asset digests for similarity\n"
+      printf "  ${CYAN}--json${NC}               JSON output to stdout\n"
+      echo ""
+      log_info "Examples:"
+      printf "  aiws intake model config --repo ~/my-repo --base-url http://localhost:11434/v1 --model qwen2.5:14b\n"
+      printf "  aiws intake model prepare --repo ~/my-repo --batch <id> --candidate <cid> --with-repo\n"
+      printf "  aiws intake model send --repo ~/my-repo --request <ai-id> --batch 1\n"
+      ;;
+
+    deploy|check)
+      log_warn "aiws intake ${subcmd} 尚未实现（属后续 TASK）"
+      exit 1
+      ;;
+    *)
+      log_error "Unknown intake subcommand: $subcmd"
+      log_info "Usage: aiws intake <scan|compare|plan|apply|rollback|deploy|check|status>"
+      exit 1
+      ;;
+  esac
+}
+
+cmd_intake_scan() {
+  . "${SCRIPT_DIR}/lib/intake/identity.sh"
+  . "${SCRIPT_DIR}/lib/intake/scan.sh"
+  . "${SCRIPT_DIR}/lib/intake/store.sh"
+  . "${SCRIPT_DIR}/lib/import-mcp.sh"
+
+  local repo="" json_output=0 out_dir="" cancel_file=""
+  local manual_files="" manual_skills=""
+  INTAKE_SOURCES=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --repo)
+        repo="$2"; shift 2 ;;
+      --source)
+        # 格式: path[:tool[:scope]]
+        local spec="$2" spath stool sscope
+        spath="${spec%%:*}"
+        local rest="${spec#*:}"
+        if [ "$rest" = "$spec" ]; then
+          stool="auto"; sscope="project"
+        else
+          stool="${rest%%:*}"
+          sscope="${rest#*:}"
+          [ "$sscope" = "$rest" ] && sscope="project"
+          [ -z "$stool" ] && stool="auto"
+          [ -z "$sscope" ] && sscope="project"
+        fi
+        INTAKE_SOURCES="${INTAKE_SOURCES}${spath}|${stool}|${sscope}
+"
+        shift 2 ;;
+      --manual-file)
+        manual_files="${manual_files}${2}
+"; shift 2 ;;
+      --manual-skill)
+        manual_skills="${manual_skills}${2}
+"; shift 2 ;;
+      --out-dir)
+        out_dir="$2"; shift 2 ;;
+      --cancel-file)
+        cancel_file="$2"; shift 2 ;;
+      --json)
+        json_output=1; shift ;;
+      --help|-h)
+        cmd_intake help; return 0 ;;
+      *)
+        log_error "Unknown option for intake scan: $1"
+        return 1 ;;
+    esac
+  done
+
+  if [ -z "$repo" ]; then
+    die "intake scan: 必须指定 --repo（总库路径）"
+  fi
+
+  if [ ! -d "$repo" ]; then
+    die "intake scan: repo 目录不存在: $repo"
+  fi
+
+  if [ -z "$INTAKE_SOURCES" ] && [ -z "$manual_files" ] && [ -z "$manual_skills" ]; then
+    die "intake scan: 至少指定一个来源（--source / --manual-file / --manual-skill）"
+  fi
+
+  # 需要 jq
+  if ! has_jq; then
+    die "jq is required for intake scan"
+  fi
+
+  export INTAKE_REPO="$repo"
+  export INTAKE_SOURCES
+  export INTAKE_MANUAL_FILES="$manual_files"
+  export INTAKE_MANUAL_SKILLS="$manual_skills"
+  export INTAKE_CANCEL_FILE="$cancel_file"
+
+  local batch_id
+  batch_id="$(intake_new_batch_id)"
+  export INTAKE_BATCH_ID="$batch_id"
+
+  if [ -n "$out_dir" ]; then
+    export INTAKE_OUT_DIR="$out_dir"
+    mkdir -p "$out_dir"
+  fi
+
+  # 运行扫描
+  local result
+  result="$(intake_scan)"
+
+  # 写入批次记录
+  if [ -n "${INTAKE_OUT_DIR:-}" ]; then
+    printf '%s\n' "$result" > "${INTAKE_OUT_DIR}/scan.json"
+  else
+    intake_batch_write_scan "$repo" "$batch_id" "$result"
+  fi
+
+  if [ "$json_output" = "1" ]; then
+    printf '%s\n' "$result"
+  else
+    # 人类可读摘要
+    local occ_count src_count err_count
+    occ_count="$(printf '%s' "$result" | jq '.occurrences | length')"
+    src_count="$(printf '%s' "$result" | jq '.sources | length')"
+    err_count="$(printf '%s' "$result" | jq '.errors | length')"
+    log_success "扫描完成 batch=${batch_id}"
+    log_info "  来源: ${src_count}  资产候选: ${occ_count}  错误: ${err_count}"
+    log_info "  结果: $(intake_batch_dir "$repo" "$batch_id")/scan.json"
+    if [ "$err_count" -gt 0 ]; then
+      log_warn "  错误详情:"
+      printf '%s' "$result" | jq -r '.errors[] | "    [\(.level)] \(.source // "?"): \(.message)"'
+    fi
+  fi
+}
+
+cmd_intake_compare() {
+  . "${SCRIPT_DIR}/lib/intake/identity.sh"
+  . "${SCRIPT_DIR}/lib/intake/scan.sh"
+  . "${SCRIPT_DIR}/lib/intake/store.sh"
+  . "${SCRIPT_DIR}/lib/intake/compare.sh"
+  . "${SCRIPT_DIR}/lib/import-mcp.sh"
+
+  local repo="" batch="" json_output=0
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --repo)
+        repo="$2"; shift 2 ;;
+      --batch)
+        batch="$2"; shift 2 ;;
+      --json)
+        json_output=1; shift ;;
+      --help|-h)
+        cmd_intake help; return 0 ;;
+      *)
+        log_error "Unknown option for intake compare: $1"
+        return 1 ;;
+    esac
+  done
+
+  if [ -z "$repo" ]; then
+    die "intake compare: 必须指定 --repo（总库路径）"
+  fi
+
+  if [ -z "$batch" ]; then
+    die "intake compare: 必须指定 --batch（扫描批次 ID）"
+  fi
+
+  if [ ! -d "$repo" ]; then
+    die "intake compare: repo 目录不存在: $repo"
+  fi
+
+  if ! has_jq; then
+    die "jq is required for intake compare"
+  fi
+
+  export INTAKE_REPO="$repo"
+  export INTAKE_BATCH_ID="$batch"
+
+  local result
+  result="$(intake_compare)"
+
+  # 候选只写本地记录区；总库规范源保持只读
+  intake_batch_write_candidates "$repo" "$batch" "$result"
+
+  if [ "$json_output" = "1" ]; then
+    printf '%s\n' "$result"
+    return 0
+  fi
+
+  local total conflict unparsable deferred
+  total="$(printf '%s' "$result" | jq '.summary.total')"
+  conflict="$(printf '%s' "$result" | jq '.summary.conflict')"
+  unparsable="$(printf '%s' "$result" | jq '.summary.unparseable')"
+  deferred="$(printf '%s' "$result" | jq '.summary.deferred')"
+
+  log_success "比较完成 batch=${batch}"
+  log_info "  候选: ${total}  冲突: ${conflict}  无法解析: ${unparsable}  暂缓: ${deferred}"
+  printf '%s' "$result" | jq -r '.candidates[] | "    [\(.labels | join(","))] \(.type) \(.display_name) <- \(.sources | length) 个来源"'
+  log_info "  结果: $(intake_batch_dir "$repo" "$batch")/candidates.json"
+
+  if ! intake_check_gitignore "$repo"; then
+    log_warn "  .ai-workspace/intake/ 未加入 .gitignore，本地记录可能被误提交"
+  fi
+}
+
+# intake plan/apply/status/rollback 共用引擎加载
+intake_load_engine() {
+  . "${SCRIPT_DIR}/lib/intake/identity.sh"
+  . "${SCRIPT_DIR}/lib/intake/scan.sh"
+  . "${SCRIPT_DIR}/lib/intake/store.sh"
+  . "${SCRIPT_DIR}/lib/intake/compare.sh"
+  . "${SCRIPT_DIR}/lib/intake/plan.sh"
+  . "${SCRIPT_DIR}/lib/intake/stage.sh"
+  . "${SCRIPT_DIR}/lib/intake/recover.sh"
+  . "${SCRIPT_DIR}/lib/intake/apply.sh"
+  . "${SCRIPT_DIR}/lib/intake/model.sh"
+  . "${SCRIPT_DIR}/lib/intake/model-io.sh"
+  . "${SCRIPT_DIR}/lib/import-mcp.sh"
+  . "${SCRIPT_DIR}/lib/import-rules.sh"
+}
+
+cmd_intake_plan() {
+  intake_load_engine
+
+  local repo="" batch="" decisions="" json_output=0
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --repo)
+        repo="$2"; shift 2 ;;
+      --batch)
+        batch="$2"; shift 2 ;;
+      --decisions)
+        decisions="$2"; shift 2 ;;
+      --json)
+        json_output=1; shift ;;
+      --help|-h)
+        cmd_intake help; return 0 ;;
+      *)
+        log_error "Unknown option for intake plan: $1"
+        return 1 ;;
+    esac
+  done
+
+  if [ -z "$repo" ]; then
+    die "intake plan: 必须指定 --repo（总库路径）"
+  fi
+  if [ -z "$batch" ]; then
+    die "intake plan: 必须指定 --batch（扫描批次 ID）"
+  fi
+  if [ -z "$decisions" ]; then
+    die "intake plan: 必须指定 --decisions（人工决定文件）"
+  fi
+  if ! has_jq; then
+    die "jq is required for intake plan"
+  fi
+
+  export INTAKE_REPO="$repo"
+  export INTAKE_BATCH_ID="$batch"
+  export INTAKE_DECISIONS_FILE="$decisions"
+
+  local result
+  result="$(intake_plan_build)"
+
+  if [ "$(printf '%s' "$result" | jq -r '.ok')" != "true" ]; then
+    log_error "intake plan: 人工决定无法生成计划"
+    printf '%s' "$result" | jq -r '.errors[]' >&2
+    return 1
+  fi
+
+  local plan plan_id plan_file
+  plan="$(printf '%s' "$result" | jq -c '.plan')"
+  plan_id="$(printf '%s' "$plan" | jq -r '.plan_id')"
+  plan_file="$(intake_plan_path "$repo" "$plan_id")"
+  intake_plan_write "$repo" "$plan_id" "$plan"
+
+  if [ "$json_output" = "1" ]; then
+    printf '%s\n' "$plan"
+    return 0
+  fi
+
+  log_success "计划已生成 plan=${plan_id}"
+  log_info "  动作: 新增 $(printf '%s' "$plan" | jq -r '.summary.add')  关联 $(printf '%s' "$plan" | jq -r '.summary.link')  更新 $(printf '%s' "$plan" | jq -r '.summary.update')  变体 $(printf '%s' "$plan" | jq -r '.summary.variant')"
+  log_info "        忽略 $(printf '%s' "$plan" | jq -r '.summary.ignore')  暂缓 $(printf '%s' "$plan" | jq -r '.summary.defer')  未处理 $(printf '%s' "$plan" | jq -r '.summary.unresolved')"
+  printf '%s' "$plan" | jq -r '.actions[] | "    [\(.kind)] \(.asset_type) \(.asset_name)"'
+  log_info "  计划: ${plan_file}"
+
+  if [ "$(printf '%s' "$plan" | jq -r '.summary.unresolved')" != "0" ]; then
+    log_warn "  仍有未处理的冲突或无法解析候选，apply 会拒绝执行："
+    printf '%s' "$plan" | jq -r '.unresolved[] | "    " + .' >&2
+  fi
+}
+
+cmd_intake_apply() {
+  intake_load_engine
+
+  local repo="" plan_arg="" json_output=0 cancel_file="" resume=0
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --repo)
+        repo="$2"; shift 2 ;;
+      --plan)
+        plan_arg="$2"; shift 2 ;;
+      --cancel-file)
+        cancel_file="$2"; shift 2 ;;
+      --resume)
+        resume=1; shift ;;
+      --json)
+        json_output=1; shift ;;
+      --help|-h)
+        cmd_intake help; return 0 ;;
+      *)
+        log_error "Unknown option for intake apply: $1"
+        return 1 ;;
+    esac
+  done
+
+  if [ -z "$repo" ]; then
+    die "intake apply: 必须指定 --repo（总库路径）"
+  fi
+  if [ -z "$plan_arg" ]; then
+    die "intake apply: 必须指定 --plan（计划文件或计划 ID）"
+  fi
+  if ! has_jq; then
+    die "jq is required for intake apply"
+  fi
+
+  # --plan 可给文件路径或计划 ID
+  local plan_file="$plan_arg"
+  if [ ! -f "$plan_file" ]; then
+    plan_file="$(intake_plan_path "$repo" "$plan_arg")"
+    if [ ! -f "$plan_file" ]; then
+      die "intake apply: 找不到计划: $plan_arg"
+    fi
+  fi
+
+  export INTAKE_REPO="$repo"
+  export INTAKE_PLAN_FILE="$plan_file"
+  export INTAKE_CANCEL_FILE="$cancel_file"
+  export INTAKE_RESUME="$resume"
+
+  local result rc=0
+  result="$(intake_apply)" || rc=$?
+
+  if [ "$json_output" = "1" ]; then
+    if [ -n "$result" ]; then
+      printf '%s\n' "$result"
+    fi
+    return $rc
+  fi
+
+  if [ "$rc" != "0" ]; then
+    return $rc
+  fi
+
+  log_success "intake apply: 完成 apply=$(printf '%s' "$result" | jq -r '.apply_id')"
+  log_info "  状态: $(printf '%s' "$result" | jq -r '.status')  文件变更: $(printf '%s' "$result" | jq -r '.files | length')  新版本: $(printf '%s' "$result" | jq -r '.created_versions | length')"
+  log_info "  执行记录: $(intake_history_path "$repo" "$(printf '%s' "$result" | jq -r '.apply_id')")"
+  return $rc
+}
+
+cmd_intake_rollback() {
+  intake_load_engine
+
+  local repo="" apply_id="" json_output=0
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --repo)
+        repo="$2"; shift 2 ;;
+      --apply)
+        apply_id="$2"; shift 2 ;;
+      --json)
+        json_output=1; shift ;;
+      --help|-h)
+        cmd_intake help; return 0 ;;
+      *)
+        log_error "Unknown option for intake rollback: $1"
+        return 1 ;;
+    esac
+  done
+
+  if [ -z "$repo" ]; then
+    die "intake rollback: 必须指定 --repo（总库路径）"
+  fi
+  if [ -z "$apply_id" ]; then
+    die "intake rollback: 必须指定 --apply（执行 ID）"
+  fi
+
+  export INTAKE_REPO="$repo"
+  export INTAKE_APPLY_ID="$apply_id"
+
+  local result rc=0
+  result="$(intake_apply_rollback)" || rc=$?
+
+  if [ "$json_output" = "1" ]; then
+    if [ -n "$result" ]; then
+      printf '%s\n' "$result"
+    fi
+    return $rc
+  fi
+
+  if [ "$rc" = "0" ]; then
+    log_success "intake rollback: 已回退 $(printf '%s' "$result" | jq -r '.apply_id')（恢复 $(printf '%s' "$result" | jq -r '.rollback.restored | length') 个路径）"
+  fi
+  return $rc
+}
+
+cmd_intake_status() {
+  intake_load_engine
+
+  local repo="" plan_id="" batch="" json_output=0
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --repo)
+        repo="$2"; shift 2 ;;
+      --plan)
+        plan_id="$2"; shift 2 ;;
+      --batch)
+        batch="$2"; shift 2 ;;
+      --json)
+        json_output=1; shift ;;
+      --help|-h)
+        cmd_intake help; return 0 ;;
+      *)
+        log_error "Unknown option for intake status: $1"
+        return 1 ;;
+    esac
+  done
+
+  if [ -z "$repo" ]; then
+    die "intake status: 必须指定 --repo（总库路径）"
+  fi
+  if [ -z "$plan_id" ] && [ -z "$batch" ]; then
+    die "intake status: 必须指定 --plan 或 --batch"
+  fi
+
+  export INTAKE_REPO="$repo"
+  export INTAKE_PLAN_ID="$plan_id"
+  export INTAKE_BATCH_ID="$batch"
+
+  local result
+  result="$(intake_apply_status)"
+
+  if [ "$json_output" = "1" ]; then
+    printf '%s\n' "$result"
+    return 0
+  fi
+
+  printf '%s' "$result" | jq -r '.apply_history[] | "  \(.status)\t\(.apply_id)\t已应用 \(.applied_actions) 项，失败 \(.failed_actions) 项"'
+  printf '%s' "$result" | jq -r '.plans[] | select(.error == null) | "  计划 \(.plan_id)：动作 \(.actions | length) 项，未处理 \(.unresolved | length) 项"'
+}
+
+cmd_intake_model() {
+  intake_load_engine
+
+  local sub="${1:-help}"
+  shift || true
+  local repo="" json_output=0
+  local base_url="" model="" cred_ref="" timeout_ms="" max_retries="" has_config_flags=0
+  local batch="" candidates="" with_repo=0 max_bytes=200000
+  local request_id="" batch_index=0 retry="" cancel_file="" plan_id=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --repo) repo="$2"; shift 2 ;;
+      --base-url) base_url="$2"; has_config_flags=1; shift 2 ;;
+      --model) model="$2"; has_config_flags=1; shift 2 ;;
+      --credential-ref) cred_ref="$2"; has_config_flags=1; shift 2 ;;
+      --no-credential) cred_ref="__null__"; has_config_flags=1; shift ;;
+      --timeout-ms) timeout_ms="$2"; has_config_flags=1; shift 2 ;;
+      --max-retries) max_retries="$2"; has_config_flags=1; shift 2 ;;
+      --batch)
+        if [ "$sub" = "prepare" ]; then batch="$2"; else batch_index="$2"; fi
+        shift 2 ;;
+      --candidate) candidates="${candidates}${2}
+"; shift 2 ;;
+      --with-repo) with_repo=1; shift ;;
+      --max-bytes) max_bytes="$2"; shift 2 ;;
+      --request) request_id="$2"; shift 2 ;;
+      --retry) retry="$2"; shift 2 ;;
+      --cancel-file) cancel_file="$2"; shift 2 ;;
+      --json) json_output=1; shift ;;
+      --help|-h) cmd_intake help; return 0 ;;
+      *)
+        log_error "Unknown option for intake model: $1"
+        return 1 ;;
+    esac
+  done
+
+  if [ -z "$repo" ]; then
+    die "intake model: 必须指定 --repo（总库路径）"
+  fi
+  if ! has_jq; then
+    die "jq is required for intake model"
+  fi
+  export INTAKE_REPO="$repo"
+
+  case "$sub" in
+    config)
+      if [ "$has_config_flags" = "0" ]; then
+        local current check
+        current="$(intake_model_config_read "$repo")"
+        check="$(intake_model_config_validate "$current")"
+        if [ "$json_output" = "1" ]; then
+          jq -nc --argjson c "$current" --argjson v "$check"             '{schema: "intake/v1", configured: $v.ok, config: $c,
+              readiness: {ok: $v.ok, errors: $v.errors}}'
+        else
+          if [ "$(printf '%s' "$check" | jq -r '.ok')" = "true" ]; then
+            log_success "模型服务已配置"
+            printf '%s' "$check" | jq -r '.config | "  地址: \(.base_url)\n  模型: \(.model)\n  凭据引用: \(.credential_ref // "（无，适用于本地服务）")"'
+          else
+            log_warn "模型服务未配置完整：$(printf '%s' "$check" | jq -r '.errors | join(", ")')"
+            log_info "  AI 辅助整理不可用；扫描、审核、入库等人工闭环不受影响"
+          fi
+        fi
+        return 0
+      fi
+
+      local next
+      next="$(intake_model_config_read "$repo" | jq -c \
+        --arg u "$base_url" --arg m "$model" --arg c "$cred_ref" \
+        --arg t "$timeout_ms" --arg r "$max_retries" '
+        . + (if $u == "" then {} else {base_url: $u} end)
+        + (if $m == "" then {} else {model: $m} end)
+        + (if $c == "__null__" then {credential_ref: null}
+           elif $c == "" then {} else {credential_ref: $c} end)
+        + (if $t == "" then {} else {timeout_ms: ($t | tonumber? // 60000)} end)
+        + (if $r == "" then {} else {max_retries: ($r | tonumber? // 2)} end)')"
+      local check2
+      check2="$(intake_model_config_validate "$next")"
+      if [ "$(printf '%s' "$check2" | jq -r '.ok')" != "true" ]; then
+        log_error "intake model config: 配置非法：$(printf '%s' "$check2" | jq -r '.errors | join(", ")')"
+        return 1
+      fi
+      intake_model_config_write "$repo" "$(printf '%s' "$check2" | jq -c '.config')"
+      if [ "$json_output" = "1" ]; then
+        printf '%s' "$check2" | jq -c '{schema: "intake/v1", configured: true, config: .config}'
+        printf '\n'
+      else
+        log_success "模型服务配置已写入 $(intake_model_config_path "$repo")（只保存凭据引用名，不保存凭据值）"
+      fi
+      ;;
+
+    prepare)
+      if [ -z "$batch" ]; then
+        die "intake model prepare: 必须指定 --batch（扫描批次 ID）"
+      fi
+      local ids
+      ids="$(printf '%s' "$candidates" | jq -R -s 'split("\n") | map(select(length > 0))')"
+      if [ "$(printf '%s' "$ids" | jq 'length')" = "0" ]; then
+        die "intake model prepare: 至少指定一个 --candidate（只发送用户选定的范围）"
+      fi
+      local prep
+      prep="$(intake_model_prepare "$repo" "$batch" "$ids" \
+        "$([ "$with_repo" = "1" ] && echo true || echo false)" "$max_bytes")"
+      if [ "$(printf '%s' "$prep" | jq -r '.ok')" != "true" ]; then
+        if [ "$json_output" = "1" ]; then
+          printf '%s\n' "$(printf '%s' "$prep" | jq -c '.')"
+        fi
+        log_error "intake model prepare: 无法生成请求：$(printf '%s' "$prep" | jq -r '.errors | join(", ")')"
+        printf '%s' "$prep" | jq -r '.details[]? | "  \(.candidate_id // "-"): \(.error)"' >&2
+        return 1
+      fi
+      request_id="$(printf '%s' "$prep" | jq -r '.request.request_id')"
+      intake_ai_request_write "$repo" "$request_id" "$(printf '%s' "$prep" | jq -c '.request')"
+      if [ "$json_output" = "1" ]; then
+        printf '%s' "$prep" | jq -c '.request'
+        printf '\n'
+      else
+        log_success "请求已准备（尚未发送）request=${request_id}"
+        printf '%s' "$prep" | jq -r '.request | "  目标: \(.target.endpoint)\n  模型: \(.target.model)\n  批次: \(.batches | length)\n  候选: \(.candidate_ids | length)"'
+        printf '%s' "$prep" | jq -r '.request.batches[] | "  batch \(.index)/\(.total)：\(.bytes) 字节，\(.candidate_ids | length) 个候选"'
+        log_info "  确认发送请运行: aiws intake model send --repo ${repo} --request ${request_id} --batch <n>"
+      fi
+      ;;
+
+    send)
+      if [ -z "$request_id" ]; then
+        die "intake model send: 必须指定 --request（请求 ID）"
+      fi
+      export INTAKE_REQUEST_ID="$request_id"
+      export INTAKE_BATCH_INDEX="$batch_index"
+      export INTAKE_CANCEL_FILE="$cancel_file"
+      local req_cfg retries
+      req_cfg="$(intake_ai_request_read "$repo" "$request_id")"
+      retries="${retry:-$(printf '%s' "$req_cfg" | jq -r '.max_retries // 0' 2>/dev/null || echo 0)}"
+      export INTAKE_MAX_RETRIES="${retries:-0}"
+
+      local result rc=0
+      result="$(intake_model_send)" || rc=$?
+      if [ "$json_output" = "1" ]; then
+        [ -n "$result" ] && printf '%s\n' "$result"
+        return $rc
+      fi
+      [ "$rc" = "0" ] || return $rc
+      printf '%s' "$result" | jq -r '"  batch \(.batches[] | "\(.batch_index): \(.status)（建议 \(.suggestions | length)，丢弃 \(.rejected | length)）")"'
+      printf '%s' "$result" | jq -r '"  合计：成功 \(.summary.ok)，部分 \(.summary.partial)，失败 \(.summary.failed)，建议 \(.summary.suggestions)"'
+      log_info "  结果已保存（每次尝试单独留存，重试不覆盖）: $(intake_ai_results_dir "$repo" "$request_id")"
+      ;;
+
+    show)
+      local man
+      if [ -n "$request_id" ]; then
+        man="$(intake_ai_manifest_read "$repo" "$request_id")"
+      else
+        man='{"schema":"intake/v1","error":"request_required"}'
+      fi
+      if [ "$json_output" = "1" ]; then
+        printf '%s\n' "$man"
+      else
+        printf '%s' "$man" | jq -r '.batches[]? | "  batch \(.index)/\(.total)：\(.status)（尝试 \(.attempts | length) 次）"'
+      fi
+      ;;
+    *)
+      cmd_intake help
+      ;;
+  esac
+}
+
+# ============================================================================
 # Main Entry Point
 # ============================================================================
 
@@ -818,6 +1530,9 @@ main() {
       ;;
     import)
       cmd_import "$@"
+      ;;
+    intake)
+      cmd_intake "$@"
       ;;
     hooks)
       cmd_hooks "$@"
