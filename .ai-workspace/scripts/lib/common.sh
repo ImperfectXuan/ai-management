@@ -10,8 +10,8 @@ set -e
 
 AIWS_VERSION="0.1.0"
 AIWS_ROOT="${AIWS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
-AIWS_DIR="${AIWS_ROOT}/.ai-workspace"
-AIWS_SCRIPTS_DIR="${AIWS_DIR}/scripts"
+AIWS_DIR="${AIWS_SOURCE_DIR:-${AIWS_ROOT}/.ai-workspace}"
+AIWS_SCRIPTS_DIR="${AIWS_RUNTIME_DIR:-${AIWS_DIR}/scripts}"
 AIWS_LIB_DIR="${AIWS_SCRIPTS_DIR}/lib"
 
 # Tool names

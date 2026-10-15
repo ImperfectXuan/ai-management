@@ -9,7 +9,7 @@
 
 ## AI Workspace 是什么？
 
-AI Workspace 是位于仓库内的项目级基础设施层。它为规则、约定、技能和项目记忆提供**单一事实来源**，然后将它们分发到你使用的每个 AI Coding 工具 — Claude Code、Codex、Cursor、Trae 等。
+AI Workspace 支持项目内规范层，也支持桌面端显式选择独立内容库，再分发到另选的应用项目。它为规则、约定、技能和项目记忆提供**单一事实来源**，然后将它们分发到你使用的每个 AI Coding 工具 — Claude Code、Codex、Cursor、Trae 等。
 
 你不用再维护内容重叠的 `AGENTS.md`、`CLAUDE.md`、`.cursor/rules/` 和 `.trae/rules/` 文件，而是维护**一套规范规则**。薄适配器将那些规则翻译为每个工具的原生格式。
 
@@ -54,6 +54,8 @@ vim .ai-workspace/rules/00-core.md
 # 5. 同步到所有工具
 .ai-workspace/scripts/aiws sync
 ```
+
+桌面端首次使用需选择统一内容库（规则、Skills、MCP 共用），再单独添加应用项目；新建空库不会复制本项目资产。详见 [桌面端用法](electron/README.md#内容库与应用项目)。
 
 本机运行桌面演示：`cd electron && npm ci && npm run demo`。独立样例、重复验证与版本冻结见 [本机演示指南](docs/guides/local-demo.zh-CN.md)。
 

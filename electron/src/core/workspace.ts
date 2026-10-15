@@ -3,7 +3,6 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { WorkspaceError, ErrorCodes } from './errors';
-import { gitRoot, isGitInstalled } from './git';
 
 export interface Repo {
   id: string;
@@ -35,10 +34,13 @@ export class WorkspaceStore {
   }
 
   async add(dir: string): Promise<Repo> {
-    if (!(await isGitInstalled())) {
-      throw new WorkspaceError(ErrorCodes.GitNotInstalled, '未检测到 git，请安装 Command Line Tools');
+    if (typeof dir !== 'string' || !path.isAbsolute(dir)) {
+      throw new WorkspaceError(ErrorCodes.InvalidArgument, '应用项目需要文件夹的绝对路径');
     }
-    const root = await gitRoot(dir);
+    const root = await fs.realpath(dir);
+    if (!(await fs.stat(root)).isDirectory()) {
+      throw new WorkspaceError(ErrorCodes.InvalidArgument, '应用项目路径必须是文件夹');
+    }
     const repos = await this.load();
     const existing = repos.find((r) => r.path === root);
     if (existing) return existing;

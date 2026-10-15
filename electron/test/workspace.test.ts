@@ -1,7 +1,7 @@
 // electron/test/workspace.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { WorkspaceStore } from '../src/core/workspace';
@@ -14,10 +14,10 @@ async function makeGitRepo() {
   return dir;
 }
 
-test('add 非 git 目录抛 NotAGitRepo', async () => {
+test('add 普通目录可作为应用项目', async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'aiws-'));
   const store = new WorkspaceStore(path.join(dir, 'repos.json'));
-  await assert.rejects(store.add(dir), (e: any) => e.code === ErrorCodes.NotAGitRepo);
+  assert.strictEqual((await store.add(dir)).path, realpathSync(dir));
 });
 
 test('add 同一 git 根去重并持久化', async () => {
@@ -44,4 +44,16 @@ test('assertAiwsInstalled 通过', async () => {
   const store = new WorkspaceStore(path.join(repoDir, '.repos.json'));
   const aiwsDir = await store.assertAiwsInstalled(repoDir);
   assert.ok(aiwsDir.endsWith('.ai-workspace'));
+});
+
+
+test('add_仓库内子目录_保留用户选定目录', async () => {
+  const repo = await makeGitRepo();
+  const selected = path.join(repo, 'project');
+  mkdirSync(selected);
+  const store = new WorkspaceStore(path.join(repo, 'repos.json'));
+
+  const result = await store.add(selected);
+
+  assert.strictEqual(result.path, realpathSync(selected));
 });

@@ -1,4 +1,7 @@
 export const IPC = {
+  LibraryGet: 'library:get',
+  LibrarySelect: 'library:select',
+  DirectoryChoose: 'directory:choose',
   WorkspaceList: 'workspace:list',
   WorkspaceAdd: 'workspace:add',
   WorkspaceRemove: 'workspace:remove',

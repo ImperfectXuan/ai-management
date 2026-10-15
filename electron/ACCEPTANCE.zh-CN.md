@@ -37,7 +37,7 @@ npm test 2>&1 | grep -E "✖|✔"    # 只看用例名与失败
 |---|---|---|
 | git | `test/git.test.ts` | 非 git 目录抛 `NotAGitRepo`；返回真实仓库根 |
 | config | `test/config.test.ts` | 缺省配置回退；读取 workspace.json；MCP/技能路径映射 |
-| workspace | `test/workspace.test.ts` | 仓库去重持久化；aiws 脚本存在性检测 |
+| workspace | `test/workspace.test.ts` | 应用项目去重持久化；支持普通文件夹；保留选定子目录；aiws 脚本存在性检测 |
 | rules | `test/rules.test.ts` | 规则列表 + required/domain/globs；开关切换；globs 优先级 |
 | mcp | `test/mcp.test.ts` | 列表/增删；local 覆盖合并；scope 过滤 |
 | skills | `test/skills.test.ts` | 描述读取 + 三态 linkStatus；链接/卸载；Windows junction/copy 回退 |
@@ -46,7 +46,7 @@ npm test 2>&1 | grep -E "✖|✔"    # 只看用例名与失败
 | ipc 校验 | `test/ipc-rules-validate.test.ts` | setRuleRequired 入参边界校验（null/原始类型/非法 tool） |
 | vault 桥接 | `test/vault-bridge.test.ts` | 缺 aiws 抛 `AiwsNotInstalled`；`--version` 桥接 |
 | sync 取消 | `test/sync-cancel.test.ts` | `syncRun` 中止后停止产出新行 |
-| renderer 冒烟 | `test/app.test.tsx` | 无仓库渲染管理页；有仓库渲染侧边栏 + tab |
+| renderer 冒烟 | `test/app.test.tsx` | 未选择内容库显示引导；已有项目不自动成为内容库；无项目可管理资产但禁止同步 |
 | 收编入参 | `test/intake-args.test.ts` | IPC 收编通道入参边界（来源/工具/scope/动作枚举/目标资产字段/状态查询过滤条件可选） |
 | 收编桥接 | `test/intake-bridge.test.ts` | 真实 CLI 引擎端到端：多来源扫描与只读、候选分类、计划与入库、计划过期、取消、记录与回退 |
 | 收编 IPC | `test/intake-ipc.test.ts` | 通道校验、总库/来源校验独立、进度广播、取消、scan→compare→plan→apply→status→rollback 全链路；目标经 IPC→CLI 生效与登记后 ID 稳定 |
@@ -173,17 +173,19 @@ npm test                                        # 完整套件（当前 93 用�
 ```bash
 cd electron && npm start
 ```
-窗口标题 "AI Workspace"，左侧仓库列表、右侧内容区、顶部 tab、底部状态栏。
+窗口标题 "AI Workspace"。首次使用先显式选择统一内容库；侧边栏分别展示内容库路径与应用项目，右侧为内容区，底部为状态栏。
 
 ### 3.2 逐页走查清单（来自计划 Task 20）
 
 | # | 页面 | 操作 | 预期 |
 |---|---|---|---|
-| 1 | 仓库 | 输入 `/Users/xuanyi/Documents/AI-management` 添加 | 出现在列表，进入主界面 |
-| 2 | 仓库 | 移除某仓库 | 从列表消失，切到仓库管理页 |
-| 3 | 工作区概览 | 查看计数 | 规则/技能/MCP 计数非 0 |
+| 1 | 内容库 | 选择临时普通文件夹，创建空内容库 | 规则、Skills、MCP 为空，不含开发项目资产；重启恢复选定位置 |
+| 1a | 应用项目 | 添加另一个临时文件夹，选为应用项目 | 不要求 Git 或 `.ai-workspace/`；同步输出仅写入此目录 |
+| 1b | 内容库 | 切换到另一已初始化内容库 | 资产来源改变，旧内容与应用项目产物保持不变，直到主动同步 |
+| 2 | 应用项目 | 移除某项目 | 从列表消失，内容库仍可管理；无项目时禁用同步 |
+| 3 | 工作区概览 | 查看计数 | 规则/技能/MCP 计数与选定内容库一致（空库为 0） |
 | 4 | 工作区概览 | 点"同步到四个工具" | 日志逐行滚动，完成后计数刷新 |
-| 5 | 规则 | 切一个领域规则开关 | `.cursor/rules/` 对应文件增/删 |
+| 5 | 规则 | 切一个领域规则开关 | 内容库 mapping 的 required 改变；点同步后目标项目的 alwaysApply 改变，规则文件仍保留 |
 | 6 | MCP | 添加测试服务器 | 表格出现新行 |
 | 7 | MCP | 删除该服务器 | 表格行消失（用后删除恢复） |
 | 8 | 技能 | 查看列表 + 详情 | 主-从布局，link 状态表正确 |
@@ -197,8 +199,9 @@ cd electron && npm start
 
 | 场景 | 操作 | 预期 |
 |---|---|---|
-| 无效仓库 | 添加非 git 目录路径 | 提示"不是 git 仓库" |
-| 未初始化仓库 | 添加无 `.ai-workspace/` 的 git 仓库 | 概览显示资产读取错误，不把读取失败当作零资产 |
+| 无效应用项目 | 添加不存在或非文件夹路径 | 明确报错，不登记项目 |
+| 未选内容库 | 已有应用项目但尚未选内容库 | 显示内容库引导，不隐式读取项目资产 |
+| 内容库冲突 | 对已有 `.ai-workspace/` 点击创建空内容库 | 拒绝覆盖，提示使用已有内容库 |
 | vault 未就绪 | 进入密钥页 | 黄色提示条 + 安装指引 |
 
 ---
@@ -218,7 +221,7 @@ cd electron && npm run dist
 
 - 四工具规则、context、MCP 与 Skills 批量同步已通过共享 CLI 接入（2026-10-15），默认 project scope
 - 设置页语言/通知为界面占位，未持久化
-- 添加仓库用路径输入框；文件夹选择器（dialog）延后
+- 内容库和应用项目均支持系统文件夹选择器，也可输入绝对路径
 - 应用图标为占位，正式图标与代码签名/公证留待有 Apple 开发者账号后配置
 - 密钥 vault 首版只读（桥接现有 `aiws secrets --json`），解密与写操作不做
 

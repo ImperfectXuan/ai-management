@@ -6,6 +6,12 @@ directories:
 files:
   - dist/**/*
   - package.json
+extraResources:
+  - from: ../.ai-workspace/scripts
+    to: aiws-scripts
+    filter:
+      - "**/*"
+      - "!test/**/*"
 mac:
   target:
     - target: dmg

@@ -51,7 +51,9 @@ export function diffLines(a: string, b: string): DiffResult {
 export async function compareRuleToGenerated(
   root: string,
   tool: 'cursor' | 'trae',
-  ruleId: string
+  ruleId: string,
+  libraryRoot: string = root,
+  cliPath?: string
 ): Promise<{ source: string; generated: string; diff: DiffResult }> {
   if (!['cursor', 'trae'].includes(tool) || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(ruleId)) {
     throw new WorkspaceError(ErrorCodes.InvalidArgument, '差异对比需要有效的工具和规则 ID');
@@ -62,14 +64,14 @@ export async function compareRuleToGenerated(
   try {
     // 用同一 CLI 在临时目录生成预期产物，避免把正常的 frontmatter 转换误报为漂移。
     for (const dir of ['scripts', 'rules', 'adapters', 'memory/context']) {
-      const from = path.join(root, '.ai-workspace', dir);
+      const from = path.join(libraryRoot, '.ai-workspace', dir);
       try {
         await fs.cp(from, path.join(sandbox, '.ai-workspace', dir), { recursive: true });
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || dir !== 'memory/context') throw error;
       }
     }
-    for await (const _line of syncRun(sandbox, { tool, only: 'rules' })) { /* 只在临时目录生成 */ }
+    for await (const _line of syncRun(sandbox, { tool, only: 'rules', cliPath })) { /* 只在临时目录生成 */ }
     const relative = path.relative(root, generatedFile);
     const source = await readGenerated(path.join(sandbox, relative));
     const generated = await readGenerated(generatedFile);

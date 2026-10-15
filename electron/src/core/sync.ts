@@ -7,6 +7,8 @@ import { WorkspaceError, ErrorCodes } from './errors';
 import { SUPPORTED_TOOLS } from '../shared/tools';
 
 export interface SyncOptions {
+  libraryRoot?: string;
+  cliPath?: string;
   scope?: 'global' | 'project';
   tool?: string;
   only?: 'rules' | 'mcp' | 'skills';
@@ -38,9 +40,12 @@ export async function* syncRun(root: string, opts: SyncOptions = {}, signal?: Ab
   const args = syncArgs(opts);
   if (signal?.aborted) throw new WorkspaceError(ErrorCodes.SyncCancelled, '同步已取消');
   yield '开始同步（项目范围为默认值）';
-  const child = spawn(path.join(root, '.ai-workspace/scripts/aiws'), args, {
+  const cli = opts.cliPath ?? path.join(opts.libraryRoot ?? root, '.ai-workspace/scripts/aiws');
+  const child = spawn(cli, args, {
     cwd: root,
-    env: { ...process.env, AIWS_ROOT: root },
+    env: { ...process.env, AIWS_ROOT: root,
+      AIWS_SOURCE_DIR: path.join(opts.libraryRoot ?? root, '.ai-workspace'),
+      AIWS_RUNTIME_DIR: path.dirname(cli) },
     stdio: ['ignore', 'pipe', 'pipe'],
     // 单独的进程组使取消能终止 shell 派生的 jq/cp 等子进程。
     detached: process.platform !== 'win32',

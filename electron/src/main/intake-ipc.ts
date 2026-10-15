@@ -4,6 +4,7 @@
 //
 // 总库以路径标识：必须是已初始化的 AI Workspace；来源不做此要求，也不要求是 git 仓库。
 
+import { WorkspaceError, ErrorCodes } from '../core/errors';
 import { IPC } from '../shared/ipc';
 import {
   assertIntakeRepo,
@@ -32,20 +33,29 @@ export interface IpcRegistrar {
 
 export type Broadcaster = (channel: string, payload: unknown) => void;
 
-export function registerIntakeIpc(register: IpcRegistrar, broadcast: Broadcaster): void {
+export function registerIntakeIpc(register: IpcRegistrar, broadcast: Broadcaster, selectedLibrary?: () => Promise<string>): void {
   const runs = new Map<string, AbortController>();
 
-  register.handle(IPC.IntakeListBatches, async (raw: unknown) => {
+  function handle<TArgs, TResult>(channel: string, fn: (args: TArgs) => Promise<TResult>) {
+    register.handle(channel, async (args: TArgs) => {
+      if (selectedLibrary && validateIntakeRepoArgs(args, channel) !== await selectedLibrary()) {
+        throw new WorkspaceError(ErrorCodes.InvalidArgument, '收编目标必须是当前统一内容库，请在“内容库存放位置”更换');
+      }
+      return fn(args);
+    });
+  }
+
+  handle(IPC.IntakeListBatches, async (raw: unknown) => {
     const repoPath = validateIntakeRepoArgs(raw, 'IntakeListBatches');
     return intakeListBatches(repoPath);
   });
 
-  register.handle(IPC.IntakeGetBatch, async (raw: unknown) => {
+  handle(IPC.IntakeGetBatch, async (raw: unknown) => {
     const args = validateIntakeBatchArgs(raw, 'IntakeGetBatch');
     return intakeReadBatch(args.repoPath, args.batchId);
   });
 
-  register.handle(IPC.IntakeScan, async (raw: unknown) => {
+  handle(IPC.IntakeScan, async (raw: unknown) => {
     const args = validateIntakeScanArgs(raw);
     await assertIntakeRepo(args.repoPath);
     const controller = new AbortController();
@@ -64,16 +74,16 @@ export function registerIntakeIpc(register: IpcRegistrar, broadcast: Broadcaster
     }
   });
 
-  register.handle(IPC.IntakeCompare, async (raw: unknown) => {
+  handle(IPC.IntakeCompare, async (raw: unknown) => {
     const args = validateIntakeBatchArgs(raw, 'IntakeCompare');
     return intakeCompare(args.repoPath, args.batchId);
   });
 
-  register.handle(IPC.IntakePlan, async (raw: unknown) => {
+  handle(IPC.IntakePlan, async (raw: unknown) => {
     return intakePlan(validateIntakePlanArgs(raw));
   });
 
-  register.handle(IPC.IntakeApply, async (raw: unknown) => {
+  handle(IPC.IntakeApply, async (raw: unknown) => {
     const args = validateIntakeApplyArgs(raw);
     const controller = new AbortController();
     runs.set(args.repoPath, controller);
@@ -90,17 +100,17 @@ export function registerIntakeIpc(register: IpcRegistrar, broadcast: Broadcaster
     }
   });
 
-  register.handle(IPC.IntakeRollback, async (raw: unknown) => {
+  handle(IPC.IntakeRollback, async (raw: unknown) => {
     const args = validateIntakeRollbackArgs(raw);
     return intakeRollback(args.repoPath, args.applyId);
   });
 
-  register.handle(IPC.IntakeStatus, async (raw: unknown) => {
+  handle(IPC.IntakeStatus, async (raw: unknown) => {
     const args = validateIntakeStatusArgs(raw);
     return intakeStatus(args.repoPath, { planId: args.planId, batchId: args.batchId });
   });
 
-  register.handle(IPC.IntakeCancel, async (raw: unknown) => {
+  handle(IPC.IntakeCancel, async (raw: unknown) => {
     const repoPath = validateIntakeRepoArgs(raw, 'IntakeCancel');
     const controller = runs.get(repoPath);
     if (controller) controller.abort();

@@ -30,7 +30,7 @@ const RISK_SET = new Set<CandidateLabel>(RISKY_LABELS);
 type IntakeStep = 'sources' | 'review' | 'plan' | 'result';
 
 
-export function IntakePage({ repoPath: initialRepo }: { repoPath: string }) {
+export function IntakePage({ repoPath: initialRepo, lockedLibrary = false }: { repoPath: string; lockedLibrary?: boolean }) {
   const [step, setStep] = useState<IntakeStep>('sources');
   const [repoPath, setRepoPath] = useState(initialRepo);
   const [sources, setSources] = useState<IntakeSourceSelection[]>([]);
@@ -202,7 +202,8 @@ export function IntakePage({ repoPath: initialRepo }: { repoPath: string }) {
 
       <div className="form">
         <label className="muted">总库路径（必须是已初始化的 AI Workspace）</label>
-        <input aria-label="总库路径" className="input" value={repoPath} onChange={(e) => setRepoPath(e.target.value)} placeholder="/Users/me/ai-workspace" />
+        <input readOnly={lockedLibrary} aria-label="总库路径" className="input" value={repoPath} onChange={(e) => setRepoPath(e.target.value)} placeholder="/Users/me/ai-workspace" />
+        {lockedLibrary && <p className="muted">入库到当前统一内容库，更换位置请前往“内容库存放位置”。</p>}
       </div>
 
       <h3>来源</h3>

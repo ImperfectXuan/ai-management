@@ -246,3 +246,19 @@ test('AC-001-12：目标选择经 IPC→CLI 生效，登记后资产 ID 稳定',
     '同一规范源不能被登记成两个资产'
   );
 });
+
+
+test('统一内容库模式_收编通道拒绝向其他项目入库', async () => {
+  const restricted = new Map<string, (args: unknown) => Promise<unknown>>();
+  const register: IpcRegistrar = {
+    handle<TArgs, TResult>(channel: string, fn: (args: TArgs) => Promise<TResult>) {
+      restricted.set(channel, fn as (args: unknown) => Promise<unknown>);
+    },
+  };
+  registerIntakeIpc(register, () => {}, async () => '/selected-library');
+
+  for (const handler of restricted.values()) {
+    await assert.rejects(handler({ repoPath: '/application-project' }), /收编目标必须是当前统一内容库/);
+  }
+  assert.deepStrictEqual(await restricted.get(IPC.IntakeCancel)!({ repoPath: '/selected-library' }), { cancelled: false });
+});

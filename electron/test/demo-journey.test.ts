@@ -46,16 +46,17 @@ for (const round of [1, 2]) {
       assert.equal(applied.status, 'ok');
       assert.equal((await intakeApply({ repoPath: demo.repo, planId: plan.plan_id })).status, 'already_applied');
       const logs: string[] = [];
-      for await (const line of syncRun(demo.repo)) logs.push(line);
+      for await (const line of syncRun(demo.target, { libraryRoot: demo.repo })) logs.push(line);
       assert.equal(logs.at(-1), '同步完成');
       for (const file of ['AGENTS.md', 'CLAUDE.md', '.cursor/rules/00-context.mdc', '.trae/rules/00-context.md']) {
-        assert.match(await fs.readFile(path.join(demo.repo, file), 'utf8'), /独立总库/);
+        assert.match(await fs.readFile(path.join(demo.target, file), 'utf8'), /独立总库/);
       }
       for (const prefix of ['.agents', '.cursor', '.trae']) {
-        assert.match(await fs.readFile(path.join(demo.repo, prefix, 'skills/source-check/SKILL.md'), 'utf8'), /来源验证/);
+        assert.match(await fs.readFile(path.join(demo.target, prefix, 'skills/source-check/SKILL.md'), 'utf8'), /来源验证/);
       }
-      assert.match(await fs.readFile(path.join(demo.repo, '.cursor/mcp.json'), 'utf8'), /demo-files/);
-      assert.equal((await runAiwsBridge(demo.repo, ['validate'])).code, 0);
+      assert.match(await fs.readFile(path.join(demo.target, '.cursor/mcp.json'), 'utf8'), /demo-files/);
+      await assert.rejects(fs.access(path.join(demo.repo, 'AGENTS.md')), '内容库不生成项目原生配置');
+      assert.equal((await runAiwsBridge(demo.target, ['validate'], demo.repo)).code, 0);
       const vault = await runAiwsJson(demo.repo, ['secrets', 'list', '--json']) as { vault_ready: boolean };
       assert.equal(vault.vault_ready, false);
       const history = await intakeStatus(demo.repo, {});

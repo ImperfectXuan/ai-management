@@ -29,7 +29,7 @@ function getTargetSkillNames(dirs: import('node:fs').Dirent[], skillName?: strin
   return dirs.filter((d) => d.isDirectory()).map((d) => d.name);
 }
 
-export async function listSkills(root: string): Promise<Skill[]> {
+export async function listSkills(root: string, targetRoot: string | null = root): Promise<Skill[]> {
   const aiwsDir = path.join(root, '.ai-workspace');
   const skillsDir = path.join(aiwsDir, 'skills');
   const cfg = await loadConfig(aiwsDir);
@@ -44,7 +44,7 @@ export async function listSkills(root: string): Promise<Skill[]> {
     const linkStatus: Record<string, { global: SkillLinkState; project: SkillLinkState }> = {};
     for (const tool of cfg.tools) {
       const g = getToolSkillsPath(root, tool, 'global');
-      const p = getToolSkillsPath(root, tool, 'project');
+      const p = targetRoot ? getToolSkillsPath(targetRoot, tool, 'project') : null;
       const sourceDir = path.join(skillsDir, d.name);
       linkStatus[tool] = {
         global: g ? await classifyLinkState(path.join(g, d.name), sourceDir) : 'missing',
@@ -56,7 +56,7 @@ export async function listSkills(root: string): Promise<Skill[]> {
   return out;
 }
 
-export async function linkSkills(root: string, scope: 'global' | 'project', tool?: string, skillName?: string): Promise<{ count: number }> {
+export async function linkSkills(root: string, scope: 'global' | 'project', tool?: string, skillName?: string, targetRoot: string = root): Promise<{ count: number }> {
   const aiwsDir = path.join(root, '.ai-workspace');
   const skillsDir = path.join(aiwsDir, 'skills');
   const cfg = await loadConfig(aiwsDir);
@@ -65,7 +65,7 @@ export async function linkSkills(root: string, scope: 'global' | 'project', tool
   const targetSkillNames = getTargetSkillNames(dirs, skillName);
   let count = 0;
   for (const t of tools) {
-    const base = getToolSkillsPath(root, t, scope);
+    const base = getToolSkillsPath(targetRoot, t, scope);
     if (!base) continue;
     await fs.mkdir(base, { recursive: true });
     for (const name of targetSkillNames) {
@@ -80,7 +80,7 @@ export async function linkSkills(root: string, scope: 'global' | 'project', tool
   return { count };
 }
 
-export async function unlinkSkills(root: string, scope: 'global' | 'project', tool?: string, skillName?: string): Promise<{ count: number }> {
+export async function unlinkSkills(root: string, scope: 'global' | 'project', tool?: string, skillName?: string, targetRoot: string = root): Promise<{ count: number }> {
   const aiwsDir = path.join(root, '.ai-workspace');
   const skillsDir = path.join(aiwsDir, 'skills');
   const cfg = await loadConfig(aiwsDir);
@@ -89,7 +89,7 @@ export async function unlinkSkills(root: string, scope: 'global' | 'project', to
   const skillNames = getTargetSkillNames(dirs, skillName);
   let count = 0;
   for (const t of tools) {
-    const base = getToolSkillsPath(root, t, scope);
+    const base = getToolSkillsPath(targetRoot, t, scope);
     if (!base) continue;
     for (const name of skillNames) {
       const source = path.join(skillsDir, name);

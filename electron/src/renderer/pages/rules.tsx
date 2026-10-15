@@ -10,10 +10,10 @@ const TOOL_LABELS: Record<PerFileTool, string> = {
   trae: 'Trae',
 };
 
-export function RulesPage({ repoId }: { repoId: string }) {
+export function RulesPage({ repoId, canSync = true }: { repoId: string; canSync?: boolean }) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [tool, setTool] = useState<PerFileTool>('cursor');
-  const [dirty, setDirty] = useState(false);
+
   const [msg, setMsg] = useState('');
 
   const load = useCallback(async () => {
@@ -25,7 +25,6 @@ export function RulesPage({ repoId }: { repoId: string }) {
     try {
       const newValue = !r.requiredByTool[tool];
       await invoke(IPC.RulesSetRequired, { repoId, tool, id: r.id, domain: r.domain, value: newValue });
-      setDirty(true);
       await load();
     } catch (e) { setMsg((e as Error).message); }
   };
@@ -33,7 +32,6 @@ export function RulesPage({ repoId }: { repoId: string }) {
   const sync = async () => {
     try {
       await invoke(IPC.SyncRun, { repoId, tool, only: 'rules' });
-      setDirty(false);
       setMsg(`已同步 ${TOOL_LABELS[tool]} 规则`);
       await load();
     } catch (e) { setMsg((e as Error).message); }
@@ -77,7 +75,7 @@ export function RulesPage({ repoId }: { repoId: string }) {
       ))}
       {rules.length === 0 && <div className="muted">未找到规则（先确认仓库已初始化 AI Workspace）。</div>}
       <div className="row" style={{ marginTop: 12 }}>
-        <button onClick={sync} disabled={!dirty}>同步 {TOOL_LABELS[tool]} 规则</button>
+        <button onClick={sync} disabled={!canSync}>同步 {TOOL_LABELS[tool]} 规则</button>
       </div>
     </div>
   );

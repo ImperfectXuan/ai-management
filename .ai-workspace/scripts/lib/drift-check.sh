@@ -75,8 +75,8 @@ check_drift() {
       ;;
   esac
 
-  if [ ! -d "${real_root}/.ai-workspace/rules" ]; then
-    log_warn "Drift check skipped: no .ai-workspace/rules under ${real_root}"
+  if [ ! -d "${AIWS_DIR}/rules" ]; then
+    log_warn "Drift check skipped: no rules under ${AIWS_DIR}"
     return 2
   fi
 

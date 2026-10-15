@@ -1,6 +1,7 @@
 export interface DemoWorkspace {
   base: string;
   repo: string;
+  target: string;
   home: string;
   profile: string;
   sourceA: string;

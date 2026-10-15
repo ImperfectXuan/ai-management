@@ -23,6 +23,13 @@ export function WorkspacesPage({ repos, onReload }: { repos: Repo[]; onReload: (
     }
   };
 
+  const browse = async () => {
+    try {
+      const selected = await invoke<string | null>(IPC.DirectoryChoose);
+      if (selected) setPath(selected);
+    } catch (failure) { setErr((failure as Error).message); }
+  };
+
   const remove = async (id: string) => {
     await invoke(IPC.WorkspaceRemove, id);
     onReload();
@@ -30,9 +37,10 @@ export function WorkspacesPage({ repos, onReload }: { repos: Repo[]; onReload: (
 
   return (
     <div className="workspaces">
-      <h2>管理仓库</h2>
+      <h2>管理应用项目</h2>
       <div className="row">
-        <input value={path} onChange={(e) => setPath(e.target.value)} placeholder="输入 git 仓库路径，如 /Users/me/project" className="input" />
+        <input value={path} onChange={(e) => setPath(e.target.value)} placeholder="输入 应用项目文件夹路径，如 /Users/me/project" className="input" />
+        <button onClick={browse} disabled={busy}>选择项目文件夹</button>
         <button onClick={add} disabled={busy}>{busy ? '验证中…' : '添加'}</button>
       </div>
       {err && <div className="error">{err}</div>}
@@ -46,7 +54,7 @@ export function WorkspacesPage({ repos, onReload }: { repos: Repo[]; onReload: (
             <button className="danger" onClick={() => remove(r.id)}>移除</button>
           </li>
         ))}
-        {repos.length === 0 && <li className="muted">还没有仓库。输入一个 git 仓库路径添加。</li>}
+        {repos.length === 0 && <li className="muted">还没有应用项目。输入一个 应用项目文件夹路径添加。</li>}
       </ul>
     </div>
   );

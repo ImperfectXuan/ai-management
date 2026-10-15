@@ -20,7 +20,7 @@ const STATE_LABELS: Record<SkillLinkState, string> = {
 
 type Scope = 'global' | 'project';
 
-export function SkillsPage({ repoId }: { repoId: string }) {
+export function SkillsPage({ repoId, canSync = true }: { repoId: string; canSync?: boolean }) {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [sel, setSel] = useState<string | null>(null);
   const [tool, setTool] = useState<string>('cursor');
@@ -93,10 +93,10 @@ export function SkillsPage({ repoId }: { repoId: string }) {
               </tbody>
             </table>
             <div className="row" style={{ marginTop: 12 }}>
-              <button onClick={() => link('global')}>链接到 {toolLabel} (global)</button>
-              <button onClick={() => link('project')}>链接到 {toolLabel} (project)</button>
-              <button className="danger" onClick={() => unlink('global')}>从 {toolLabel} 卸载 (global)</button>
-              <button className="danger" onClick={() => unlink('project')}>从 {toolLabel} 卸载 (project)</button>
+              <button disabled={!canSync} onClick={() => link('global')}>链接到 {toolLabel} (global)</button>
+              <button disabled={!canSync} onClick={() => link('project')}>链接到 {toolLabel} (project)</button>
+              <button className="danger" disabled={!canSync} onClick={() => unlink('global')}>从 {toolLabel} 卸载 (global)</button>
+              <button className="danger" disabled={!canSync} onClick={() => unlink('project')}>从 {toolLabel} 卸载 (project)</button>
             </div>
           </>
         ) : (

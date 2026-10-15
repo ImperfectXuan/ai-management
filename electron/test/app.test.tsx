@@ -20,6 +20,7 @@ let listeners: Array<[string, (d: unknown) => void]> = [];
 beforeEach(() => {
   handlers = {
     'workspace:list': () => [],
+    'library:get': () => ({path: '/library'}),
     'rules:list': () => [],
     'mcp:list': () => [],
     'skills:list': () => [],
@@ -32,15 +33,16 @@ beforeEach(() => {
   cleanup();
 });
 
-test('无仓库时渲染仓库管理页', async () => {
+test('未选择内容库时显示内容库引导', async () => {
+  handlers['library:get'] = () => null;
   const { container } = render(<App />);
-  assert.ok(await within(container).findByRole('heading', { name: '管理仓库' }));
+  assert.ok(await within(container).findByRole('heading', { name: '统一内容库' }));
 });
 
 test('有仓库时渲染侧边栏与 tab', async () => {
   handlers['workspace:list'] = () => [{ id: '1', path: '/repo', name: 'repo', addedAt: 'x' }];
   const { container } = render(<App />);
-  assert.ok(await within(container).findByRole('combobox', { name: '当前仓库' }));
+  assert.ok(await within(container).findByRole('combobox', { name: '应用项目' }));
   assert.ok((await within(container).findAllByText('工作区概览')).length > 0);
   assert.ok((await within(container).findAllByText('差异对比')).length > 0);
 });
@@ -52,9 +54,52 @@ test('仓库管理可以返回工作区，概览入口能打开收编', async ()
   const { container } = render(<App />);
   const q = within(container);
   await q.findByRole('button', { name: '收编已有配置 →' });
-  fireEvent.click(q.getByRole('button', { name: '管理仓库' }));
-  await q.findByRole('heading', { name: '管理仓库' });
+  fireEvent.click(q.getByRole('button', { name: '管理应用项目' }));
+  await q.findByRole('heading', { name: '管理应用项目' });
   fireEvent.click(q.getByRole('button', { name: '← 返回工作区' }));
   fireEvent.click(await q.findByRole('button', { name: '收编已有配置 →' }));
   assert.ok(await q.findByRole('navigation', { name: '收编步骤' }));
+});
+
+
+test('已有项目也不会自动用作内容库', async () => {
+  handlers['workspace:list'] = () => [{ id: '1', path: '/repo', name: 'repo', addedAt: 'x' }];
+  handlers['library:get'] = () => null;
+  const { container } = render(<App />);
+  const q = within(container);
+
+  await q.findByRole('heading', { name: '统一内容库' });
+
+  assert.ok(q.getByRole('button', { name: '选择文件夹' }));
+  assert.equal(q.queryByText('总库资产'), null);
+});
+
+
+test('无应用项目时仍能管理内容库，禁止同步', async () => {
+  const { container } = render(<App />);
+  const q = within(container);
+  fireEvent.click(await q.findByRole('button', { name: '规则' }));
+
+  assert.equal((await q.findByRole('button', { name: '同步 Cursor 规则' }) as HTMLButtonElement).disabled, true);
+  fireEvent.click(q.getByRole('button', { name: '管理应用项目' }));
+  assert.ok(await q.findByRole('heading', { name: '管理应用项目' }));
+});
+
+
+test('显式选择内容库后_无应用项目也能进入资产管理', async () => {
+  handlers['library:get'] = () => null;
+  handlers['directory:choose'] = () => '/chosen-library';
+  handlers['library:select'] = (payload) => {
+    assert.deepStrictEqual(payload, { path: '/chosen-library', initialize: true });
+    return { path: '/chosen-library' };
+  };
+  const { container } = render(<App />);
+  const q = within(container);
+  fireEvent.click(await q.findByRole('button', { name: '选择文件夹' }));
+  await q.findByDisplayValue('/chosen-library');
+  fireEvent.click(q.getByRole('button', { name: '在此创建空内容库' }));
+
+  assert.ok(await q.findByRole('heading', { name: '规则' }));
+  assert.ok(q.getByText('/chosen-library'));
+  assert.equal((q.getByRole('button', { name: '同步 Cursor 规则' }) as HTMLButtonElement).disabled, true);
 });

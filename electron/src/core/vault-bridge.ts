@@ -5,11 +5,12 @@ import { WorkspaceError, ErrorCodes } from './errors';
 
 export async function runAiwsBridge(
   root: string,
-  args: string[]
+  args: string[],
+  libraryRoot: string = root
 ): Promise<{ stdout: string; stderr: string; code: number }> {
-  const aiws = path.join(root, '.ai-workspace', 'scripts', 'aiws');
+  const aiws = path.join(libraryRoot, '.ai-workspace', 'scripts', 'aiws');
   return new Promise((resolve) => {
-    const env = { ...process.env, AIWS_ROOT: root, ...(args.includes('--json') ? { AIWS_JSON: '1' } : {}) };
+    const env = { ...process.env, AIWS_ROOT: root, AIWS_SOURCE_DIR: path.join(libraryRoot, '.ai-workspace'), AIWS_RUNTIME_DIR: path.dirname(aiws), ...(args.includes('--json') ? { AIWS_JSON: '1' } : {}) };
     execFile(aiws, args, { cwd: root, env, timeout: 15_000 }, (err, stdout, stderr) => {
       if (err) {
         if (typeof (err as { code?: unknown }).code === 'number') {

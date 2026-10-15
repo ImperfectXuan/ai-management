@@ -17,11 +17,13 @@ async function put(root, file, text) {
 export async function prepareDemo() {
   const base = await mkdtemp(path.join(tmpdir(), 'aiws-demo-'));
   const repo = path.join(base, '总库');
+  const target = path.join(base, '应用项目');
   const home = path.join(base, 'home');
   const profile = path.join(base, 'profile');
   const sourceA = path.join(base, '来源项目-A');
   const sourceB = path.join(base, '来源项目-B');
   await mkdir(repo);
+  await mkdir(target);
   await mkdir(home);
   await mkdir(profile);
   for (const name of ['scripts', 'adapters']) {
@@ -46,9 +48,10 @@ export async function prepareDemo() {
   await put(sourceA, '.cursor/mcp.json', json({ mcpServers: { 'demo-files': { command: 'node', args: ['demo-server.js'] } } }));
   await put(repo, '.gitignore', '.ai-workspace/intake/\n.agents/\n.cursor/\n.trae/\n.codex/\n');
   execFileSync('git', ['init', '--quiet', repo]);
-  await put(profile, 'repos.json', json({ repos: [{ id: 'demo-library', path: repo, name: '演示总库', addedAt: '2026-10-15T00:00:00Z' }] }));
-  const result = { base, repo, home, profile, sourceA, sourceB };
+  await put(profile, 'repos.json', json({ repos: [{ id: 'demo-library', path: target, name: '演示应用项目', addedAt: '2026-10-15T00:00:00Z' }] }));
+  await put(profile, 'content-library.json', json({ path: repo }));
+  const result = { base, repo, target, home, profile, sourceA, sourceB };
   await put(base, 'demo.json', json(result));
-  await put(base, '演示路径.txt', `总库：${repo}\n来源 A：${sourceA}\n来源 B：${sourceB}\n\n来源 A 选 cursor/project，来源 B 选 trae/project。\n同名冲突建议选择“忽略”，其余安全候选可选择“新增”。\nMCP 为虚构配置，仅演示配置分发，不启动服务器。\n`);
+  await put(base, '演示路径.txt', `内容库：${repo}\n应用项目：${target}\n来源 A：${sourceA}\n来源 B：${sourceB}\n\n来源 A 选 cursor/project，来源 B 选 trae/project。\n同名冲突建议选择“忽略”，其余安全候选可选择“新增”。\nMCP 为虚构配置，仅演示配置分发，不启动服务器。\n`);
   return result;
 }
