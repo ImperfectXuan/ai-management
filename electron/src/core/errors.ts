@@ -11,6 +11,7 @@ export const ErrorCodes = {
   CliFailed: 'CliFailed',
   SyncCancelled: 'SyncCancelled',
   SyncFailed: 'SyncFailed',
+  SyncStatusInvalid: 'SyncStatusInvalid',
 } as const;
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
 
