@@ -27,3 +27,7 @@
 - added: rules/07-conversation-style.md (- → c250cfb9)
 - removed: rules/07-UserRoute.md (ea86759b → -)
 
+## 2026-09-15 — sync
+
+- modified: rules/07-conversation-style.md (c250cfb9 → afad8df6)
+

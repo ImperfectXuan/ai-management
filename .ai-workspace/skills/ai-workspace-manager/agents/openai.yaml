@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI Workspace 管理器"
+  short_description: "管理并同步 AI 规则、MCP 与 Skills"
+  default_prompt: "使用 $ai-workspace-manager 修改当前工作区的 AI 规则或 MCP 配置，并同步和验证结果。"
