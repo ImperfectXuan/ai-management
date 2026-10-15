@@ -3,7 +3,7 @@ import { test, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import { JSDOM } from 'jsdom';
 import React from 'react';
-import { render, cleanup, within } from '@testing-library/react';
+import { render, cleanup, within, fireEvent } from '@testing-library/react';
 
 // 模块加载期建立 jsdom 全局（必须在 import App 之前，App.tsx 顶层 typeof document 守卫依赖它）
 const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>');
@@ -34,13 +34,27 @@ beforeEach(() => {
 
 test('无仓库时渲染仓库管理页', async () => {
   const { container } = render(<App />);
-  assert.ok(await within(container).findByText('管理仓库'));
+  assert.ok(await within(container).findByRole('heading', { name: '管理仓库' }));
 });
 
 test('有仓库时渲染侧边栏与 tab', async () => {
   handlers['workspace:list'] = () => [{ id: '1', path: '/repo', name: 'repo', addedAt: 'x' }];
   const { container } = render(<App />);
-  assert.ok(await within(container).findByText('repo'));
-  assert.ok((await within(container).findAllByText('仪表盘')).length > 0);
+  assert.ok(await within(container).findByRole('combobox', { name: '当前仓库' }));
+  assert.ok((await within(container).findAllByText('工作区概览')).length > 0);
   assert.ok((await within(container).findAllByText('差异对比')).length > 0);
+});
+
+
+test('仓库管理可以返回工作区，概览入口能打开收编', async () => {
+  handlers['workspace:list'] = () => [{ id: '1', path: '/repo', name: 'repo', addedAt: 'x' }];
+  handlers['intake:status'] = () => ({ apply_history: [] });
+  const { container } = render(<App />);
+  const q = within(container);
+  await q.findByRole('button', { name: '收编已有配置 →' });
+  fireEvent.click(q.getByRole('button', { name: '管理仓库' }));
+  await q.findByRole('heading', { name: '管理仓库' });
+  fireEvent.click(q.getByRole('button', { name: '← 返回工作区' }));
+  fireEvent.click(await q.findByRole('button', { name: '收编已有配置 →' }));
+  assert.ok(await q.findByRole('navigation', { name: '收编步骤' }));
 });

@@ -16,29 +16,34 @@ const TOOL_LABELS: Record<Tool, string> = {
   codex: 'Codex',
 };
 
-export function DashboardPage({ repoId }: { repoId: string }) {
+export function DashboardPage({ repoId, onIntake }: { repoId: string; onIntake?: () => void }) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [mcp, setMcp] = useState<McpServer[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<string[]>([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [syncState, setSyncState] = useState<'idle' | 'running' | 'done' | 'failed'>('idle');
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const [r, m, s] = await Promise.all([
         invoke<Rule[]>(IPC.RulesList, repoId),
         invoke<McpServer[]>(IPC.McpList, repoId),
         invoke<Skill[]>(IPC.SkillsList, repoId),
       ]);
-      setRules(r); setMcp(m); setSkills(s);
-    } catch { /* 仓库未初始化等，由各卡降级显示 */ }
+      setRules(r); setMcp(m); setSkills(s); setError('');
+    } catch (failure) { setError((failure as Error).message); }
+    finally { setLoading(false); }
   }, [repoId]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
     const offP = onProgress(IPC.SyncProgress, (d) => {
-      const { line } = d as { line: string };
-      setLog((prev) => [...prev.slice(-200), line]);
+      const { repoId: progressId, line } = d as { repoId: string; line: string };
+      if (progressId === repoId) setLog((prev) => [...prev.slice(-200), line]);
     });
     const offD = onProgress(IPC.SyncDone, (d) => {
       const { repoId: doneId } = d as { repoId: string };
@@ -48,38 +53,56 @@ export function DashboardPage({ repoId }: { repoId: string }) {
   }, [repoId, load]);
 
   const sync = async () => {
-    setBusy(true); setLog([]);
-    try { await invoke(IPC.SyncRun, { repoId }); } catch { setBusy(false); }
+    setBusy(true); setLog([]); setSyncState('running');
+    try { await invoke(IPC.SyncRun, { repoId }); setSyncState('done'); }
+    catch (failure) { setSyncState('failed'); setLog((previous) => [...previous, (failure as Error).message]); }
+    finally { setBusy(false); }
   };
 
-  // per-file 工具(cursor/trae)按各自 mapping 的 required 计数;单文件工具(claude/codex)显示"-"
-  const ruleCountFor = (t: Tool): number | string => {
-    if (t === 'cursor' || t === 'trae') {
-      return rules.filter((r) => r.requiredByTool[t]).length;
-    }
-    return '-';
+  const ruleCountFor = (tool: Tool): number => {
+    if (tool === 'cursor' || tool === 'trae') return rules.filter((rule) => rule.requiredByTool[tool]).length;
+    return rules.filter((rule) => !rule.tools.length || rule.tools.includes(tool)).length;
   };
+
+  const count = (value: number | string) => loading || error ? '—' : value;
+  const statusLabel = { idle: '差异尚未检查', running: '正在生成配置', done: '配置已生成', failed: '同步未完成' }[syncState];
 
   return (
-    <div>
-      <h2>仪表盘</h2>
-      <div className="cards">
-        {TOOLS.map((t) => (
-          <div key={t} className="card">
-            <div className="card-title">{TOOL_LABELS[t]}</div>
-            <div className="card-stat">规则: {ruleCountFor(t)}</div>
-            <div className="card-stat">技能: {skills.length}</div>
-            <div className="card-stat">MCP: {mcp.length}</div>
+    <div className="dashboard">
+      <div className="eyebrow">WORKSPACE / OVERVIEW</div>
+      <div className="page-heading">
+        <div><h1>配置从这里，分发到每个工具。</h1><p className="muted">在总库维护规则、技能与服务配置。</p></div>
+        <button className="primary" onClick={sync} disabled={busy || loading || Boolean(error)}>{busy ? '同步中…' : '同步到四个工具'}</button>
+      </div>
+      {error && <div className="error" role="alert">读取资产失败：{error}<button onClick={load}>重试</button></div>}
+      <section className="distribution" aria-label="工具分发">
+        <div className="section-heading"><h2>工具分发</h2><span className={`badge ${syncState === 'done' ? 'success' : syncState === 'failed' ? 'warning' : ''}`}>{statusLabel}</span></div>
+        <div className="distribution-routes">
+          <div className="distribution-source"><span className="eyebrow">SOURCE</span><strong>AI Workspace 总库</strong><p>规则 · 技能 · MCP<br />统一维护，按工具生成</p></div>
+          <div className="distribution-connector" aria-hidden="true" />
+          <div className="distribution-tools">
+            {TOOLS.map((tool) => <div key={tool} className="tool-card">
+              <div className="tool-title">{TOOL_LABELS[tool]}</div>
+              <p>{tool === 'cursor' || tool === 'trae' ? '常驻规则' : '适用规则'} {count(ruleCountFor(tool))} · 技能 {count(skills.length)} · MCP {count(mcp.length)}</p>
+            </div>)}
           </div>
-        ))}
+        </div>
+        <p className="section-note">连线表示配置生成关系。配置生成成功不代表差异一致，也不代表 MCP 服务已连接。</p>
+        <div className="row section-actions"><button onClick={load} disabled={busy || loading}>刷新资产</button>
+          {busy && <button onClick={() => invoke(IPC.SyncCancel, repoId).catch((failure: Error) => setLog((prev) => [...prev, failure.message]))}>取消同步</button>}
+        </div>
+      </section>
+      <div className="dashboard-lower">
+        <section><h2>总库资产</h2><dl className="asset-list">
+          <div><dt>规则</dt><dd>{count(rules.length)} 项</dd></div>
+          <div><dt>技能</dt><dd>{count(skills.length)} 项</dd></div>
+          <div><dt>MCP 配置</dt><dd>{count(mcp.length)} 项</dd></div>
+        </dl></section>
+        <section className="next-action"><span className="eyebrow">IMPORT</span><h2>已有项目配置，集中整理。</h2><p className="muted">从项目中扫描候选，逐项审核，再写入总库。</p>
+          {onIntake && <button onClick={onIntake}>收编已有配置 →</button>}
+        </section>
       </div>
-      <div className="row" style={{ margin: '12px 0' }}>
-        <button onClick={sync} disabled={busy}>{busy ? '同步中…' : '一键同步'}</button>
-        <button onClick={load} disabled={busy}>刷新</button>
-      </div>
-      {log.length > 0 && (
-        <pre className="log">{log.join('\n')}</pre>
-      )}
+      {log.length > 0 && <section className="sync-output"><h2>同步记录</h2><pre className="log" aria-label="同步记录">{log.join('\n')}</pre></section>}
     </div>
   );
 }

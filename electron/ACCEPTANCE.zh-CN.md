@@ -2,7 +2,7 @@
 
 > **适用范围**：`electron/` 子目录开发的独立 macOS 应用（Electron + React + TypeScript）。
 > **配套文档**：设计 spec `docs/superpowers/specs/2026-08-07-desktop-app-design.md`；实施计划 `docs/superpowers/plans/2026-08-07-desktop-app.md`。
-> **本文件是验收标准**，随开发阶段推进逐步解锁，最终以 Task 20 的完整走查为结项依据。
+> **文档角色**：Desktop 验证方法与首版验收口径，关联 [总体需求](../docs/SPEC.md) 的 REQ-DESKTOP / REQ-SYNC 及 [追踪矩阵](../docs/TRACEABILITY.md)。历史阶段状态不代表当次版本已通过验收；执行结果须记录 commit、环境、日期与验收 ID。
 
 ---
 
@@ -15,9 +15,11 @@
 | Phase 3 renderer 界面（Task 13-18） | ✅ 已完成 | GUI 各页面功能走查 |
 | Phase 4 打包（Task 19-20） | ✅ 已完成 | dmg 打包 + 端到端验收 |
 
-**当前状态**：四阶段全部交付。§1 自动化验收 + §2 模块级冒烟（core 层）+ §3 GUI 逐页走查 + §4 打包验收，均可按本文件执行。
+**历史交付记录**：四阶段已记录交付（实际证据查 [PROGRESS](../docs/PROGRESS.md)）。本轮仅整理文档，未重新验证。§1 自动化验收 + §2 模块级冒烟（core 层）+ §3 GUI 逐页走查 + §4 打包验收，均可按本文件执行。
 
 ---
+
+本机演示入口、隔离说明与源码冻结步骤见 [本机演示指南](../docs/guides/local-demo.zh-CN.md)。
 
 ## 1. 自动化验收（贯穿始终）
 
@@ -25,7 +27,7 @@
 
 ```bash
 cd /Users/xuanyi/Documents/AI-management/electron
-npm test            # 全量测试（当前 61 个用例）
+npm test            # 全量测试；用例数以当次执行为准
 npm test 2>&1 | grep -E "✖|✔"    # 只看用例名与失败
 ```
 
@@ -45,8 +47,12 @@ npm test 2>&1 | grep -E "✖|✔"    # 只看用例名与失败
 | vault 桥接 | `test/vault-bridge.test.ts` | 缺 aiws 抛 `AiwsNotInstalled`；`--version` 桥接 |
 | sync 取消 | `test/sync-cancel.test.ts` | `syncRun` 中止后停止产出新行 |
 | renderer 冒烟 | `test/app.test.tsx` | 无仓库渲染管理页；有仓库渲染侧边栏 + tab |
+| 收编入参 | `test/intake-args.test.ts` | IPC 收编通道入参边界（来源/工具/scope/动作枚举/目标资产字段/状态查询过滤条件可选） |
+| 收编桥接 | `test/intake-bridge.test.ts` | 真实 CLI 引擎端到端：多来源扫描与只读、候选分类、计划与入库、计划过期、取消、记录与回退 |
+| 收编 IPC | `test/intake-ipc.test.ts` | 通道校验、总库/来源校验独立、进度广播、取消、scan→compare→plan→apply→status→rollback 全链路；目标经 IPC→CLI 生效与登记后 ID 稳定 |
+| 收编向导 | `test/intake-ui.test.tsx` | 候选分类与来源详情、六种动作、目标资产选择、动作/目标变化使旧计划失效、批量不绕过冲突、未处理项阻断入库、失败续跑、取消通道、记录读取失败提示、AI 未配置说明 |
 
-**验收标准**：`npm test` 输出 `pass 61 / fail 0`。
+**验收标准**：当次完整测试套件无失败，并记录实际用例数与输出；历史用例数不能作为固定验收门槛。
 
 ### 1.3 测试追加规则
 
@@ -122,7 +128,7 @@ const { compareRuleToGenerated } = require('./src/core/diff');
 })();
 "
 ```
-> 先跑 2.3 的 sync 再跑本命令，预期 `identical: false`（因为生成文件含 frontmatter，源文件不含，diff 展示的是"规范化前后"的差异，属正常）。
+> 先跑 2.3 的 sync 再跑本命令，预期 `identical: true`（对比临时目录内 CLI 生成的预期产物与实际文件，不再将 frontmatter 格式转换视为漂移）。
 
 ### 2.5 取消语义（Task 11 预留）
 
@@ -139,6 +145,24 @@ const { syncRun } = require('./src/core/sync');
 })();
 "
 ```
+
+### 2.6 收编（intake，TASK-001-05）
+
+```bash
+cd electron
+npm test -- --test-name-pattern "收编|intake"   # 收编相关用例
+npm test                                        # 完整套件（当前 93 用例）
+```
+
+模块级行为（不需要 GUI）：
+
+- `test/intake-bridge.test.ts`：在临时总库（复制真实 CLI 引擎）+ 两个无 `.ai-workspace` 的来源上走完整闭环；断言来源目录内容哈希前后不变、规范源与 registry 落盘、新规则已登记 mapping、重复执行返回 `already_applied`、回退删除本批次新建项。
+- `test/intake-ipc.test.ts`：直接驱动 IPC 处理器（不经 Electron）；断言来源目录当总库被拒绝（源/目标校验独立）、进度广播、取消不产生 `assets/`。
+- `test/intake-ui.test.tsx`：组件级；断言候选分类展示、六种动作入口、需要目标的动作给出实际资产下拉且选定值随决定送交 IPC、改变动作后旧计划立即消失、批量「全选新增」跳过冲突与无法解析、`unresolved` 非空时禁用「执行入库」、失败后提供续跑与重审、入库记录读取失败显式报错、AI 区显示未配置。
+
+手工走查（启动 GUI 后）：在左侧导航打开「配置收编」 → 填总库路径（已初始化的 AI Workspace）→ 添加来源（可为任意目录）→ 开始扫描 → 逐个候选选择动作（冲突项必须显式选择；「关联已有项 / 更新原项 / 另存变体」还需选定目标资产）→ 生成计划 → 执行入库 → 展开「入库记录」后回退。
+
+注意：`react-dom` 必须在 jsdom 全局之后加载才能让受控输入的 `onChange` 生效，组件测试用 `await import('@testing-library/react')` 懒加载，新增组件测试请沿用同一写法。
 
 ---
 
@@ -157,8 +181,8 @@ cd electron && npm start
 |---|---|---|---|
 | 1 | 仓库 | 输入 `/Users/xuanyi/Documents/AI-management` 添加 | 出现在列表，进入主界面 |
 | 2 | 仓库 | 移除某仓库 | 从列表消失，切到仓库管理页 |
-| 3 | 仪表盘 | 查看计数 | 规则/技能/MCP 计数非 0 |
-| 4 | 仪表盘 | 点"一键同步" | 日志逐行滚动，完成后计数刷新 |
+| 3 | 工作区概览 | 查看计数 | 规则/技能/MCP 计数非 0 |
+| 4 | 工作区概览 | 点"同步到四个工具" | 日志逐行滚动，完成后计数刷新 |
 | 5 | 规则 | 切一个领域规则开关 | `.cursor/rules/` 对应文件增/删 |
 | 6 | MCP | 添加测试服务器 | 表格出现新行 |
 | 7 | MCP | 删除该服务器 | 表格行消失（用后删除恢复） |
@@ -174,7 +198,7 @@ cd electron && npm start
 | 场景 | 操作 | 预期 |
 |---|---|---|
 | 无效仓库 | 添加非 git 目录路径 | 提示"不是 git 仓库" |
-| 未初始化仓库 | 添加无 `.ai-workspace/` 的 git 仓库 | 仪表盘提示未初始化 |
+| 未初始化仓库 | 添加无 `.ai-workspace/` 的 git 仓库 | 概览显示资产读取错误，不把读取失败当作零资产 |
 | vault 未就绪 | 进入密钥页 | 黄色提示条 + 安装指引 |
 
 ---
@@ -192,7 +216,7 @@ cd electron && npm run dist
 
 ## 5. 已知限制与后续项（不属于本期验收）
 
-- claude/codex 的规则生成（单文件模式）首版跳过，仅 cursor/trae 逐条生成
+- 四工具规则、context、MCP 与 Skills 批量同步已通过共享 CLI 接入（2026-10-15），默认 project scope
 - 设置页语言/通知为界面占位，未持久化
 - 添加仓库用路径输入框；文件夹选择器（dialog）延后
 - 应用图标为占位，正式图标与代码签名/公证留待有 Apple 开发者账号后配置

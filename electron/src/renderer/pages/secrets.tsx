@@ -22,14 +22,23 @@ interface SecretsAudit {
 export function SecretsPage({ repoId }: { repoId: string }) {
   const [list, setList] = useState<SecretsList | null>(null);
   const [audit, setAudit] = useState<SecretsAudit | null>(null);
+  const [error, setError] = useState('');
   useEffect(() => {
-    invoke<SecretsList>(IPC.SecretsList, repoId).then(setList).catch(() => setList({ secrets: [], vault_ready: false, error: '无法读取' }));
-    invoke<SecretsAudit>(IPC.SecretsAudit, repoId).then(setAudit).catch(() => setAudit({ tools: [] }));
+    let active = true;
+    setList(null); setAudit(null); setError('');
+    Promise.all([
+      invoke<SecretsList>(IPC.SecretsList, repoId),
+      invoke<SecretsAudit>(IPC.SecretsAudit, repoId),
+    ]).then(([nextList, nextAudit]) => {
+      if (active) { setList(nextList); setAudit(nextAudit); }
+    }).catch((e: Error) => { if (active) setError(`密钥状态读取失败：${e.message}`); });
+    return () => { active = false; };
   }, [repoId]);
 
   return (
     <div>
       <h2>密钥（只读）</h2>
+      {error && <div className="error" role="alert">{error}</div>}
       {list?.vault_ready === false && (
         <div className="error">vault 未初始化。安装依赖: brew install age oath-toolkit，然后 aiws setup</div>
       )}
