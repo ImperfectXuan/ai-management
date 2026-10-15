@@ -1198,3 +1198,183 @@ aiws intake model show    --repo <总库> --request <请求ID> [--json]
 
 - `import-mcp.sh` 的 `codex_entries_to_json` 在 `set -e` 下 grep 无匹配会截断输出；调用处 `set +e` 规避，未改共享模块。
 - 真实工具全局路径（非沙盒 HOME）未验证。
+
+## 22. 实施记录：第二轮审查整改（2026-10-10）
+
+### 22.1 父目录软链接绕过（P1）
+
+原实现只在最终文件/目录为符号链接时检查范围。修复为 `intake_check_path_scope` 在任何内容读取（`head`、`sha256`、`find`、frontmatter 解析）之前校验完整真实路径，包括逐级父目录。系统级祖先链接（macOS `/tmp` → `/private/tmp`）通过"允许根祖先"判断放行。越界来源直接返回 `read_status: unsupported`，不读取内容。
+
+### 22.2 手动路径授权扩大（P1）
+
+`allowed_roots` 构建从 `for mf_item in ${INTAKE_MANUAL_FILES}` 改为 `while IFS= read -r`，与扫描遍历一致。Skill 选择授权目录本身（而非仅 `dirname`）。
+
+### 22.3 非字符串敏感值泄漏（P1）
+
+`intake_strip_credentials` 原实现只对非空字符串敏感值做 REDACTED。修复为：已知敏感键的**任意非引用值**（字符串、对象、数组、数字、布尔）一律替换为 `REDACTED`。`${secret:...}` 引用保留。脱敏失败返回空 `sanitized` + 全量 `suspects`，不回退原文。
+
+### 22.4 MCP 结构验证（P1）
+
+新增结构校验：
+- 顶层必须是对象（`invalid_top_level_type`）
+- `mcpServers`/`servers` 必须是对象（`invalid_mcpServers_type` / `invalid_servers_type`）
+- 每个 server 配置必须是对象（`server_config_not_object`）
+- 空输出 ≠ 合法空配置（TOML 解析器空输出 → `toml_parse_failed`）
+
+### 22.5 `--preview` 纯预览（P2）
+
+实现 `aiws intake scan --preview`：输出 JSON 到 stdout，不持久化批次记录。与 `--out-dir` 组合时 `--preview` 优先（不写入）。CLI help 同步更新。
+
+### 22.6 测试假通过修复（P2）
+
+- 脱敏失败测试：错误分支改调 `t_fail`
+- 持久化测试：使用独立 `RESULT_01` 变量，不被后续 fixture 覆盖
+- 父目录链接测试：真正替换 `.cursor` 为符号链接（`mv` + `ln -sf`），区分父目录链接与最终文件链接
+- 结果文件检查：先断言文件存在再检查内容
+
+### 22.7 哈希工具选择（P2）
+
+测试中显式选择哈希工具（`sha256sum`/`shasum`/`md5sum`/`md5`），生成非空清单并断言包含预期文件。不用 `find ... | sort || find ... | sort` 的隐式回退。
+
+### 22.8 .gitignore（P2）
+
+`.ai-workspace/intake/` 忽略规则加入 `.gitignore`。临时 Git 仓库验证 `scan.json` 被正确忽略。
+
+## 23. 实施记录：TASK-001-03～06 代码审查整改（2026-10-10）
+
+审查基准 `d086528` + 审查时未提交工作区。以下按缺陷逐项记录修复位置与结论；测试证据见
+`verification.md` 运行 7 与 `.ai-workspace/scripts/test/test-intake-review-0306.sh`。
+
+### 23.1 写入路径边界（新增 `lib/intake/paths.sh`）
+
+原实现把规则 frontmatter `id` 直接拼进 `.ai-workspace/rules/domains/<id>.md`，`id: ../../../../escaped`
+可写到总库之外；父目录是软链接时同样越界。修复：
+
+- `intake_is_safe_segment`：单段名称不得为 `.` / `..`、不得含 `/` 或控制字符（规则 id、资产名、MCP server 名、Skill 名）。
+- `intake_is_safe_rel_path`：总库相对路径不得是绝对路径、不得含 `.`/`..`/空段。
+- `intake_physical_path` / `intake_within_repo`：逐级解析符号链接（含最终目标的链接链，上限 20 跳），
+  要求解析后的绝对路径仍落在总库内。自实现而非 `realpath`：macOS/GNU 参数不同，且新增场景路径尚不存在。
+- `intake_repo_abs_path`：校验 + 拼接的唯一入口；失败即拒绝。
+- 应用点：`stage_rule` / `stage_skill` / `stage_mcp_all` / `apply_target_path` / `intake_apply_backfill_stage` /
+  `intake_apply_commit_content` / `intake_apply_rollback`。错误码 `unsafe_asset_name:<name>`、`unsafe_target_path:<rel>`。
+- MCP server 名与 Skill 名的校验放在「来源可读」之后、凭据门禁之前：`ignore`/`defer` 不受影响，
+  不可读来源仍先报 `source_unreadable`。
+
+### 23.2 稳定资产 ID 与目标快照（`compare.sh` / `plan.sh`）
+
+设计 §3.3 原文即「ID 在首次入库时生成并写入 registry，后续版本沿用同一 ID」，实现却每次由**当前内容指纹**
+重新推导，导致 `add → update → update` 后第二次更新产生新 ID、同一规范源出现两条登记、版本历史被拆散。修复：
+
+- `intake_repo_index_annotate`：规范源索引条目挂上 registry 的 `asset_id` 与 `version`；`updated` 的候选因此带出
+  `existing_asset_id` / `existing_version`（不再是 `null`）。
+- `plan.sh` 目标解析顺序：`decision.target_asset_id` → 候选 `existing_asset_id`（registry 稳定身份）
+  → 最后才是 `idmap` 派生（仅用于尚未登记的既有源）。内容指纹只用于版本与比较。
+- `intake_plan_target_snapshots` 改由规范源索引构建：未登记条目用 `intake_asset_id_from_identity`（`identity.sh`，
+  与入库同一规则）派生 ID，因此 Desktop 能选到「总库既有但未纳管」的项，且选到的 ID 与引擎解析一致。
+- 变体仍是独立资产，`related.parent` 指向原项；原项版本不受影响。
+
+### 23.3 目标实际内容复核（`apply.sh`）
+
+只比 `current_version` 会漏掉「registry 未变但文件被人手改」。计划新增
+`target_path` / `target_content_fingerprint` / `target_cred_fingerprint`（mcp 取行为指纹，凭据指纹单列），
+preflight 用 `intake_apply_target_identity` 重算并比对，不一致记 `target_content_changed` 并整批中止。
+
+另有暂存→提交窗口：`stage_*` 在暂存时记录 `target_before_fingerprint`，`commit_content` 落盘前再比一次，
+不一致记 `target_changed_before_commit`——拒绝发生在任何覆盖动作之前。
+
+### 23.4 提交状态持久化与续跑（`commit.sh` 拆分、`apply.sh`、`store.sh`）
+
+原实现只在四个阶段末尾写记录，且 `write_history` 故障直接 `die`（无任何记录）；重试时把上一轮自己写下的
+文件当成「既有文件」备份，损坏回退基准；`--resume` 又被自己推进的版本快照挡住。修复：
+
+- 新增 `commit.sh`（`apply.sh` 已接近 500 行上限，按职责拆分）。
+- 提交一开始就写**未完成记录**（`status: incomplete`），持久化 `files`（备份基线）、`created_versions`、
+  `upserts`、`decisions`、`content_committed_actions` 与逐阶段状态；此后每次阶段推进原地更新。
+- 续跑复用 `apply_id` 与已持久化的基线：`intake_apply_commit_content` 对 `baseline` 里已有的路径沿用
+  `before_fingerprint` / `backup_rel`，不再重新备份；`commit_versions` 对已存在且身份一致的版本目录跳过。
+- 暂存重算时把已提交的 rel 传给 `intake_apply_registry_update`（`skip_backfill`），避免把自己的写入当成
+  「总库既有资产」凭空补一个初始版本。
+- `preflight` 只复核本轮真正要动手的动作；`write_assets` 已完成的续跑跳过 preflight（目标已被本批次改写）。
+- 状态词汇：`failed` = 未进入提交（preflight / 暂存失败）；`incomplete` = 已部分提交，必须 `--resume` 续跑；
+  `ok` / `cancelled` / `already_applied` 不变。
+- 故障接缝扩展为 `write_assets` / `write_assets_partial` / `write_registry` / `write_history`，覆盖
+  提交前、内容部分提交、registry 未更新、终态记录未落盘四种窗口；`write_history` 现在先落盘未完成记录再返回失败。
+
+### 23.5 回退一致性（`recover.sh`）
+
+原实现逐文件回退时跳过冲突文件，却照旧恢复整份旧 registry，出现「内容与登记版本不一致」。修复为**先整体判定
+可行性、可行才动手**：
+
+- 扫描全部 `files[]`：当前指纹等于 `after` → 可回退；等于 `before`（或本批次新建且已删除）→ 已回退，幂等；
+  否则冲突。备份缺失也是冲突。
+- registry 同步判定：计数器等于 `registry_version_after` → 可回退；等于 `registry_version_before` → 已回退；
+  否则 `registry_advanced` 冲突。
+- 任一冲突 → 整批不动（`rollback_conflict`，记录 `conflicts` 与逐项判定），**不覆盖任何内容、不回退 registry**。
+- 回退取总库执行锁；重复回退幂等；中断后重跑按同一判定继续。
+
+### 23.6 共享资产凭据门禁（新增 `lib/intake/credentials.sh`、`stage.sh`）
+
+人工确认不能绕过 spec §5.4。文本级扫描独立成 `credentials.sh`（`identity.sh` 本轮新增内容已接近 500 行上限，
+按职责拆出「凭据文本识别与共享资产门禁」）。新增 `intake_text_credential_lines`（单文件）与
+`intake_dir_credential_lines`（Skill 目录内所有文件）：识别 `key: value` / `key=value` / 块标量（`key: |` 后缩进的整段）中非空、非
+`${secret:...}` 的值，只输出**行号与字段名，绝不回显值**。`intake_credential_gate_findings` 按 Rule / Skill
+适配，命中即拒绝该动作：`credential_not_reference:<file>:<line>`（MCP 为 `credential_not_reference:<字段>`，
+处理边界一致）。拒绝发生在暂存之前，规范源、版本快照、备份与执行记录都不会出现明文。
+
+不为规避错误改写用户内容——命中即拒绝并提示改为引用，不做静默删除。总库既有内容（backfill 路径）属于
+「已经在库里的内容」，本任务不因它阻断入库（见 23.11）。
+
+### 23.7 忽略决定的来源边界（`compare.sh`）
+
+原判定按 `asset_type + 内容指纹` 匹配，忽略 A 项目的规则会连带吞掉 B 项目里从未审核过的同内容文件。修复：
+忽略/暂缓决定按**实际审核过的来源组**匹配——仅当候选的**全部** occurrence 都被同身份的同种决定覆盖时才生效；
+新增来源、或 A+B 联合扫描中 B 未被审核，都重新进入审核。`stale_dec` 仍按来源重叠判定，来源内容变化即重新审核。
+暂缓只认同身份的 defer 决定，与忽略语义分离。
+
+### 23.8 Desktop 六动作参数与目标选择（`intake-types.ts` / `intake-selection.ts` / `intake-args.ts` / `intake-bridge.ts` / `intake.tsx`）
+
+- `compare` 输出新增 `repo_asset_list`（含未登记项的派生 ID），供 UI 给出真实可选项。
+- `PlanDecision` 带 `target_asset_id`；校验层要求非空字符串、且只允许 `link`/`update`/`variant`，
+  桥接层原样写入 decisions 文件，引擎侧再校验存在性与类型（`target_not_found` / `target_type_mismatch`）。
+- 详情面板对需要目标的动作给出目标下拉（同类型、已登记优先），并展示将写入的规范源路径与是否首次纳管；
+  无可选目标时明确提示该项无法执行、建议改用「新增」。
+- 动作、目标或总库任一变化 → 旧计划立即作废（`useEffect` 清空 `plan`），不会留下与当前审核状态不一致的可执行计划。
+
+### 23.9 历史查询与回退入口（`intake-args.ts` / `aiws` / `recover.sh` / `intake.tsx`）
+
+`planId` / `batchId` 统一为**可选过滤条件**：只给总库表示查询全部执行历史与计划（`aiws intake status --repo <总库>`）。
+页面不再把查询失败吞成空历史，失败时展示可操作错误与「重试」，避免回退入口凭空消失。
+
+### 23.10 模型边界（`model.sh` / `model-io.sh` / `store.sh`）
+
+- **多行敏感值**：脱敏按块标量整体处理。原实现只替换 `API_KEY: |` 这一行，块内正文原样进入请求体。
+  现在块内每行都以同一占位符遮蔽，块值整体参与凭据身份；块内空行也保守计入。占位符值改存按编号分文件的临时目录，
+  避免换行值破坏制表符分隔；`redactions[].line` 同时修正为真实行号（原先是占位符序号）。
+- **类型先于索引**：校验程序先判类型再索引/遍历。`source_occurrence_id: []`、`uncovered_ranges: "oops"`
+  这类畸形字段不再让 jq 报错退出、丢掉整批结果；非法建议逐条拒绝并保留合法项，非法整体结构返回可识别错误，
+  校验器自身异常也返回结构化 `invalid_output`。
+- **逐来源锚点**：每个 anchor 自带 `source_occurrence_id`，按各自来源校验行号与原文，支持真实的跨文件 merge；
+  行号必须是整数且在来源范围内。`uncovered_ranges` 逐条校验来源与范围，非法条目丢弃并记
+  `uncovered_ranges_dropped`；自动补齐的区间同样携带正确来源。系统提示、输出契约与校验器使用同一契约。
+- **尝试记录跨次保留**：尝试序号接续（`intake_ai_attempt_max_seq`），新增 `send_seq` 区分「单次发送内部重试」
+  与「用户再次发送」；写入用 `set -C` 的 O_EXCL 语义，并发争用同一序号时换号重试，绝不覆盖既有记录。
+  `intake_model_attempt_run` 的 `body_canonical` 改为显式参数，记录里的 `body_hash` 与实际发送体保证同源。
+
+### 23.11 新增/拆分模块
+
+| 文件 | 职责 |
+|---|---|
+| `lib/intake/paths.sh` | 总库写入路径边界（段/相对路径/软链接解析与包含判定） |
+| `lib/intake/credentials.sh` | 文本中的明文凭据识别与共享资产门禁 |
+| `lib/intake/commit.sh` | 提交阶段：内容落盘、版本快照、registry 合并与决定记录（自 `apply.sh` 拆出） |
+
+`aiws intake_load_engine` 已按依赖顺序加载三者。
+
+### 23.12 已知限制
+
+- 文本凭据门禁覆盖 `key: value` / `key=value` / 块标量；其它形式（如 JSON 一行内的引号包裹、脚本里的拼接值）
+  仍以 `suspects` 提示人工检查，不宣称已全部识别。
+- backfill（登记总库既有资产）会把既有内容原样纳入初始版本快照；若既有文件本身含明文凭据，属于「入库前就已
+  存在」，本任务不据此阻断，也不改写用户内容。
+- 回退为整批语义：任一文件冲突则整批不回退。这是为保证「内容与登记版本一致」而选择的保守策略。
+- Desktop 模型配置与建议审核界面仍属 TASK-001-07；本轮只补齐非 AI 闭环的目标选择与记录查询。

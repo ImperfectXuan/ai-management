@@ -252,9 +252,20 @@ expect_json "$RESULT" '[.occurrences[] | select(.path | contains("global-rule"))
 echo ""
 echo "--- AC-001-02: 四工具三类资产与只读 ---"
 
-# 记录扫描前源目录内容
-BEFORE_A="$(find "$SRC_A" -type f -exec md5sum {} \; 2>/dev/null | sort || find "$SRC_A" -type f -exec md5 {} \; | sort)"
-BEFORE_B="$(find "$SRC_B" -type f -exec md5sum {} \; 2>/dev/null | sort || find "$SRC_B" -type f -exec md5 {} \; | sort)"
+# 记录扫描前源目录内容（显式选择哈希工具）
+HASH_TOOL=""
+if command -v sha256sum >/dev/null 2>&1; then HASH_TOOL="sha256sum"
+elif command -v shasum >/dev/null 2>&1; then HASH_TOOL="shasum -a 256"
+elif command -v md5sum >/dev/null 2>&1; then HASH_TOOL="md5sum"
+elif command -v md5 >/dev/null 2>&1; then HASH_TOOL="md5"
+fi
+hash_manifest() {
+  find "$1" -type f | sort | while IFS= read -r f; do
+    printf '%s %s\n' "$($HASH_TOOL < "$f" | awk '{print $1}')" "$f"
+  done
+}
+BEFORE_A="$(hash_manifest "$SRC_A")"
+BEFORE_B="$(hash_manifest "$SRC_B")"
 
 RESULT2="$(INTAKE_REPO="$REPO" INTAKE_BATCH_ID="batch-test-02" \
   INTAKE_SOURCES="${SRC_A}|auto|project
@@ -267,16 +278,16 @@ ${FAKE_HOME}|trae|global" \
 echo "$RESULT2" > "${SANDBOX}/result-02.json"
 
 # 源目录不变
-AFTER_A="$(find "$SRC_A" -type f -exec md5sum {} \; 2>/dev/null | sort || find "$SRC_A" -type f -exec md5 {} \; | sort)"
-AFTER_B="$(find "$SRC_B" -type f -exec md5sum {} \; 2>/dev/null | sort || find "$SRC_B" -type f -exec md5 {} \; | sort)"
+AFTER_A="$(hash_manifest "$SRC_A")"
+AFTER_B="$(hash_manifest "$SRC_B")"
 
-if [ "$BEFORE_A" = "$AFTER_A" ]; then
+if [ -n "$BEFORE_A" ] && [ "$BEFORE_A" = "$AFTER_A" ]; then
   t_pass "source_a_unchanged"
 else
   t_fail "source_a_unchanged"
 fi
 
-if [ "$BEFORE_B" = "$AFTER_B" ]; then
+if [ -n "$BEFORE_B" ] && [ "$BEFORE_B" = "$AFTER_B" ]; then
   t_pass "source_b_unchanged"
 else
   t_fail "source_b_unchanged"

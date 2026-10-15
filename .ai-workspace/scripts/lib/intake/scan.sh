@@ -41,6 +41,20 @@ intake_path_within() {
   esac
 }
 
+# 解析符号链接真实路径（readlink -f 兼容）
+intake_realpath() {
+  local target="$1"
+  if command -v realpath >/dev/null 2>&1; then
+    realpath "$target" 2>/dev/null && return
+  fi
+  # macOS / 兜底
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$target" 2>/dev/null && return
+  fi
+  # 最后兜底：手动展开（不够完美但可用）
+  printf '%s\n' "$target"
+}
+
 # 检查路径（含父目录）的真实路径是否在允许范围内
 # 在读取任何内容前调用；任一父目录是越界符号链接即拒绝
 # 输出 "0|<real>" 或 "2|link_out_of_scope"
@@ -53,18 +67,21 @@ intake_check_path_scope() {
   fi
 
   # 逐级检查父目录是否有越界符号链接
-  local probe="$target" real
+  local probe="$target" real root in_scope=0 root_real
   while [ "$probe" != "/" ] && [ -n "$probe" ]; do
     if [ -L "$probe" ]; then
       real="$(intake_realpath "$probe")"
       if [ -n "$real" ]; then
-        local root in_scope=0
+        in_scope=0
         OLD_IFS="$IFS"
         IFS=":"
         for root in $allowed_roots; do
           IFS="$OLD_IFS"
           [ -n "$root" ] || continue
-          if intake_path_within "$real" "$root"; then
+          root_real="$(intake_realpath "$root")"
+          # 父目录链接解析后应在允许根内，或是允许根的祖先（如 macOS /tmp → /private/tmp）
+          if intake_path_within "$real" "$root" || intake_path_within "$real" "$root_real" \
+            || intake_path_within "$root" "$real" || intake_path_within "$root_real" "$real"; then
             in_scope=1
             break
           fi
@@ -83,13 +100,14 @@ intake_check_path_scope() {
   # 目标自身的真实路径
   real="$(intake_realpath "$target")"
   if [ -n "$real" ]; then
-    local root in_scope=0
+    local root in_scope=0 root_real
     OLD_IFS="$IFS"
     IFS=":"
     for root in $allowed_roots; do
       IFS="$OLD_IFS"
       [ -n "$root" ] || continue
-      if intake_path_within "$real" "$root"; then
+      root_real="$(intake_realpath "$root")"
+      if intake_path_within "$real" "$root" || intake_path_within "$real" "$root_real"; then
         in_scope=1
         break
       fi
@@ -104,20 +122,6 @@ intake_check_path_scope() {
 
   printf '0|%s\n' "${real:-$target}"
   return 0
-}
-
-# 解析符号链接真实路径（readlink -f 兼容）
-intake_realpath() {
-  local target="$1"
-  if command -v realpath >/dev/null 2>&1; then
-    realpath "$target" 2>/dev/null && return
-  fi
-  # macOS / 兜底
-  if command -v python3 >/dev/null 2>&1; then
-    python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$target" 2>/dev/null && return
-  fi
-  # 最后兜底：手动展开（不够完美但可用）
-  printf '%s\n' "$target"
 }
 
 # 安全跟随符号链接：
@@ -281,12 +285,40 @@ intake_scan_rule_file() {
   original_name="$(basename "$filepath")"
   original_name="${original_name%.*}"
 
-  # 生成副本检测（不据此认定总库已拥有）
+  # 范围校验（含父目录软链接）——必须在任何内容读取之前
+  local scope_check scope_rc scope_real
+  scope_check="$(intake_check_path_scope "$filepath" "$allowed_roots")"
+  scope_rc="${scope_check%%|*}"
+  scope_real="${scope_check#*|}"
+  if [ "$scope_rc" = "2" ]; then
+    read_status="unsupported"
+    read_error="\"link_out_of_scope\""
+    body_hash="missing"
+    # 直接返回，不读取内容
+    jq -nc \
+      --arg id "$occ_id" --arg source_root "$source_root" --arg tool "$tool" \
+      --arg scope "$scope" --arg path "$rel_path" --arg name "$original_name" \
+      --arg status "$read_status" --argjson error "$read_error" \
+      --arg batch_id "${INTAKE_BATCH_ID:-}" \
+      '{
+        occurrence_id: $id, asset_type: "rule",
+        source_root: $source_root, tool: $tool, scope: $scope,
+        path: $path, original_name: $name,
+        content_fingerprint: "sha256:missing",
+        read_status: $status, read_error: $error,
+        is_generated_copy: false, generated_of: null, link_target: null,
+        title: null, description: null, globs: null, always_apply: null,
+        suspects: [], last_seen_batch: $batch_id
+      }'
+    return 0
+  fi
+
+  # 生成副本检测（不据此认定总库已拥有）——范围已确认
   if intake_is_generated_copy "$filepath"; then
     is_generated="true"
   fi
 
-  # 符号链接处理
+  # 符号链接处理（范围已通过，跟随到真实内容）
   if [ -L "$filepath" ]; then
     local link_result link_rc link_real
     link_result="$(intake_safe_resolve_link "$filepath" "$allowed_roots")"
@@ -295,7 +327,6 @@ intake_scan_rule_file() {
     case $link_rc in
       0)
         link_target="$(printf '%s' "$link_real" | jq -Rs .)"
-        # 继续读真实内容
         filepath="$link_real"
         body_hash="$(intake_sha256 "$filepath")"
         ;;
@@ -429,6 +460,30 @@ intake_scan_skill() {
   local read_status="ok" read_error="null" link_target="null"
   local is_link="false" is_managed_link="false"
   local dir_hash="missing"
+
+  # 范围校验（含父目录软链接）——必须在任何内容读取之前
+  local scope_check scope_rc scope_real
+  scope_check="$(intake_check_path_scope "$skill_dir" "$allowed_roots")"
+  scope_rc="${scope_check%%|*}"
+  scope_real="${scope_check#*|}"
+  if [ "$scope_rc" = "2" ]; then
+    jq -nc \
+      --arg id "$occ_id" --arg source_root "$source_root" --arg tool "$tool" \
+      --arg scope "$scope" --arg path "$rel_path" --arg name "$skill_name" \
+      --arg batch_id "${INTAKE_BATCH_ID:-}" \
+      '{
+        occurrence_id: $id, asset_type: "skill",
+        source_root: $source_root, tool: $tool, scope: $scope,
+        path: $path, original_name: $name,
+        content_fingerprint: "sha256:missing",
+        read_status: "unsupported", read_error: "link_out_of_scope",
+        is_generated_copy: false, generated_of: null, link_target: null,
+        is_symlink: false, is_managed_link: false,
+        file_count: 0, has_script: false,
+        suspects: [], last_seen_batch: $batch_id
+      }'
+    return 0
+  fi
 
   # 符号链接：识别真实来源
   if [ -L "$skill_dir" ]; then
@@ -567,7 +622,29 @@ intake_scan_mcp() {
   local occ_id
   occ_id="$(intake_occurrence_id "$source_root" "$tool" "$scope" "$rel_path")"
 
-  # 符号链接：检查范围后再读取
+  # 范围校验（含父目录软链接）——必须在任何内容读取之前
+  local scope_check scope_rc
+  scope_check="$(intake_check_path_scope "$mcp_file" "$allowed_roots")"
+  scope_rc="${scope_check%%|*}"
+  if [ "$scope_rc" = "2" ]; then
+    jq -nc \
+      --arg id "$occ_id" --arg source_root "$source_root" --arg tool "$tool" \
+      --arg scope "$scope" --arg path "$rel_path" \
+      --arg batch_id "${INTAKE_BATCH_ID:-}" \
+      '{
+        occurrence_id: $id, asset_type: "mcp",
+        source_root: $source_root, tool: $tool, scope: $scope,
+        path: $path, original_name: null,
+        content_fingerprint: "sha256:missing",
+        read_status: "unsupported", read_error: "link_out_of_scope",
+        is_generated_copy: false, generated_of: null, link_target: null,
+        servers: [], credentials: [], suspects: [],
+        last_seen_batch: $batch_id
+      }'
+    return 0
+  fi
+
+  # 符号链接：跟随到真实内容
   if [ -L "$mcp_file" ]; then
     local link_result link_rc link_real
     link_result="$(intake_safe_resolve_link "$mcp_file" "$allowed_roots")"
@@ -575,7 +652,6 @@ intake_scan_mcp() {
     link_real="${link_result#*|}"
     case $link_rc in
       0)
-        # 范围内：读真实内容
         mcp_file="$link_real"
         ;;
       1)
@@ -654,7 +730,7 @@ intake_scan_mcp() {
   fi
 
   # 解析 MCP（复用 import-mcp.sh 的解析器）
-  # 区分：合法空配置 / 解析失败 / 格式不支持 / 无法读取
+  # 区分：合法空配置 / 解析失败 / 结构错误 / 格式不支持 / 无法读取
   local raw_json="" parse_ok="true" parse_error=""
   case "$tool" in
     codex)
@@ -663,11 +739,10 @@ intake_scan_mcp() {
       set +e
       raw_json="$(parse_codex_mcp_json "$mcp_file" 2>/dev/null)"
       set -e
-      if [ -n "$raw_json" ] && printf '%s' "$raw_json" | jq -e . >/dev/null 2>&1; then
-        : # ok
-      elif [ -z "$raw_json" ]; then
-        raw_json="{}"
-      else
+      if [ -z "$raw_json" ]; then
+        parse_ok="false"
+        parse_error="toml_parse_failed"
+      elif ! printf '%s' "$raw_json" | jq -e . >/dev/null 2>&1; then
         parse_ok="false"
         parse_error="toml_parse_failed"
       fi
@@ -678,8 +753,17 @@ intake_scan_mcp() {
         parse_ok="false"
         parse_error="invalid_json"
       else
-        raw_json="$(jq -c '.servers // {}' "$mcp_file" 2>/dev/null)" || parse_ok="false"
-        [ -n "$raw_json" ] || raw_json="{}"
+        # 验证顶层对象与 servers 结构
+        if ! jq -e 'type == "object"' "$mcp_file" >/dev/null 2>&1; then
+          parse_ok="false"
+          parse_error="invalid_top_level_type"
+        elif jq -e '.servers != null and (.servers | type) != "object"' "$mcp_file" >/dev/null 2>&1; then
+          parse_ok="false"
+          parse_error="invalid_servers_type"
+        else
+          raw_json="$(jq -c '.servers // {}' "$mcp_file" 2>/dev/null)" || parse_ok="false"
+          [ -n "$raw_json" ] || raw_json="{}"
+        fi
       fi
       ;;
     claude|cursor|trae|manual)
@@ -688,17 +772,31 @@ intake_scan_mcp() {
         parse_ok="false"
         parse_error="invalid_json"
         raw_json=""
+      elif ! jq -e 'type == "object"' "$mcp_file" >/dev/null 2>&1; then
+        parse_ok="false"
+        parse_error="invalid_top_level_type"
+        raw_json=""
       else
         raw_json="$(parse_json_mcp "$mcp_file" 2>/dev/null)" || parse_ok="false"
-        [ -n "$raw_json" ] || raw_json="{}"
-        # 检查是否有 .mcpServers 键
-        if [ "$parse_ok" = "true" ] && ! jq -e '.mcpServers' "$mcp_file" >/dev/null 2>&1; then
-          # 无 mcpServers 键：检查是否为空对象（合法空配置）或其他结构
-          if jq -e 'type == "object" and length == 0' "$mcp_file" >/dev/null 2>&1; then
-            raw_json="{}"
-          else
+        # 验证 mcpServers 结构
+        if [ "$parse_ok" = "true" ]; then
+          if jq -e '.mcpServers == null' "$mcp_file" >/dev/null 2>&1; then
+            # 无 mcpServers 键：检查是否为空对象（合法空配置）
+            if jq -e 'type == "object" and length == 0' "$mcp_file" >/dev/null 2>&1; then
+              raw_json="{}"
+            else
+              parse_ok="false"
+              parse_error="missing_mcpServers_key"
+            fi
+          elif jq -e '(.mcpServers | type) != "object"' "$mcp_file" >/dev/null 2>&1; then
             parse_ok="false"
-            parse_error="missing_mcpServers_key"
+            parse_error="invalid_mcpServers_type"
+          elif jq -e '.mcpServers | type == "array"' "$mcp_file" >/dev/null 2>&1; then
+            parse_ok="false"
+            parse_error="invalid_mcpServers_type"
+          else
+            raw_json="$(jq -c '.mcpServers // {}' "$mcp_file" 2>/dev/null)" || parse_ok="false"
+            [ -n "$raw_json" ] || raw_json="{}"
           fi
         fi
       fi
@@ -745,6 +843,35 @@ intake_scan_mcp() {
 
   if [ -z "$raw_json" ] || [ "$raw_json" = "null" ]; then
     raw_json="{}"
+  fi
+
+  # 验证 server 配置结构：每个 server 必须是对象
+  local struct_valid="true" struct_error=""
+  if ! printf '%s' "$raw_json" | jq -e 'type == "object"' >/dev/null 2>&1; then
+    struct_valid="false"
+    struct_error="servers_not_object"
+  elif printf '%s' "$raw_json" | jq -e '[.[] | select(type != "object")] | length > 0' >/dev/null 2>&1; then
+    struct_valid="false"
+    struct_error="server_config_not_object"
+  fi
+
+  if [ "$struct_valid" != "true" ]; then
+    jq -nc \
+      --arg id "$occ_id" --arg source_root "$source_root" --arg tool "$tool" \
+      --arg scope "$scope" --arg path "$rel_path" \
+      --arg err "$struct_error" \
+      --arg batch_id "${INTAKE_BATCH_ID:-}" \
+      '{
+        occurrence_id: $id, asset_type: "mcp",
+        source_root: $source_root, tool: $tool, scope: $scope,
+        path: $path, original_name: null,
+        content_fingerprint: "sha256:missing",
+        read_status: "parse_error", read_error: $err,
+        is_generated_copy: false, generated_of: null, link_target: null,
+        servers: [], credentials: [], suspects: [],
+        last_seen_batch: $batch_id
+      }'
+    return 0
   fi
 
   # 逐 server 分离凭据
@@ -927,14 +1054,20 @@ intake_scan() {
 ${INTAKE_SOURCES:-}
 EOF
 
-  # 手动来源显式纳入范围
+  # 手动来源显式纳入范围（换行分隔，不按空白拆分）
   local mf_item
-  for mf_item in ${INTAKE_MANUAL_FILES:-}; do
+  while IFS= read -r mf_item; do
+    [ -n "$mf_item" ] || continue
     allowed_roots="${allowed_roots}:$(dirname "$mf_item")"
-  done
-  for mf_item in ${INTAKE_MANUAL_SKILLS:-}; do
-    allowed_roots="${allowed_roots}:$(dirname "$mf_item")"
-  done
+  done << EOF
+${INTAKE_MANUAL_FILES:-}
+EOF
+  while IFS= read -r mf_item; do
+    [ -n "$mf_item" ] || continue
+    allowed_roots="${allowed_roots}:${mf_item}"
+  done << EOF
+${INTAKE_MANUAL_SKILLS:-}
+EOF
 
   intake_progress "开始扫描 batch=${batch_id}" 0
 

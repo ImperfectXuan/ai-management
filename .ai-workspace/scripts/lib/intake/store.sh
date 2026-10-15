@@ -350,6 +350,25 @@ intake_history_latest_for_key() {
     | sort_by(.started_at // "") | last // null'
 }
 
+# 某幂等键下最近一条「未完成」执行记录（内容/registry 已部分落盘，需要续跑）；无则 null
+# 与 failed 区分：failed 表示还没进入提交，incomplete 表示做到一半
+intake_history_inflight_for_key() {
+  local repo="$1" key="$2" dir
+  dir="$(intake_history_dir "$repo")"
+  if [ ! -d "$dir" ]; then
+    echo 'null'
+    return 0
+  fi
+
+  local f
+  for f in "${dir}"/*.json; do
+    [ -f "$f" ] || continue
+    cat "$f"
+  done | jq -s -c --arg k "$key" '
+    map(select(.idempotency_key == $k and .status == "incomplete"))
+    | sort_by(.started_at // "") | last // null'
+}
+
 # ---- 暂存区（预备写入，失败保留供诊断） ----
 
 intake_staging_dir() { echo "${1}/.ai-workspace/${INTAKE_STAGING_REL}/$2"; }
@@ -417,10 +436,38 @@ intake_ai_request_read() {
 }
 
 # 保存一次尝试的结果；绝不覆盖既有尝试（design 9.4：重试不静默覆盖）
+# 用 O_EXCL 语义写入：文件已存在（含并发发送）时返回 1，由调用方换号重试
 intake_ai_attempt_write() {
   local repo="$1" request_id="$2" batch_index="$3" attempt="$4" json="$5"
+  local f
   mkdir -p "$(intake_ai_results_dir "$repo" "$request_id")"
-  printf '%s\n' "$json" > "$(intake_ai_attempt_path "$repo" "$request_id" "$batch_index" "$attempt")"
+  f="$(intake_ai_attempt_path "$repo" "$request_id" "$batch_index" "$attempt")"
+  if ( set -C; printf '%s\n' "$json" > "$f" ) 2>/dev/null; then
+    return 0
+  fi
+  return 1
+}
+
+# 某批次已有的最大尝试序号；新一次发送从这里往后接着编号，跨次不覆盖
+intake_ai_attempt_max_seq() {
+  local repo="$1" request_id="$2" batch_index="$3" dir max
+  dir="$(intake_ai_results_dir "$repo" "$request_id")"
+  if [ ! -d "$dir" ]; then printf '0'; return 0; fi
+  max="$(ls "$dir" 2>/dev/null \
+    | sed -n "s/^batch-${batch_index}\.attempt-\([0-9][0-9]*\)\.json$/\1/p" \
+    | sort -n | tail -n 1)"
+  [ -n "$max" ] || max=0
+  printf '%s' "$max"
+}
+
+# 某请求已有的最大发送轮次；用于区分"单次发送内部重试"和"用户再次发送"
+intake_ai_attempt_max_send_seq() {
+  local repo="$1" request_id="$2" dir max
+  dir="$(intake_ai_results_dir "$repo" "$request_id")"
+  if [ ! -d "$dir" ]; then printf '0'; return 0; fi
+  max="$(cat "$dir"/batch-*.json 2>/dev/null | jq -s -r 'map(.send_seq // 0) | max // 0' 2>/dev/null)"
+  [ -n "$max" ] || max=0
+  printf '%s' "$max"
 }
 
 intake_ai_manifest_write() {

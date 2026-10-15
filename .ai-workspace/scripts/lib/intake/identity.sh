@@ -62,6 +62,19 @@ intake_fingerprint_skill_dir() {
   printf '%s' "$listing" | intake_sha256 -
 }
 
+# 路径内容指纹：目录取清单指纹，文件取内容哈希，不存在输出空
+# plan 的目标快照与 apply 的执行前复核共用，避免两处口径漂移
+intake_fingerprint_path() {
+  local path="$1"
+  if [ -d "$path" ]; then
+    intake_fingerprint_skill_dir "$path"
+  elif [ -f "$path" ]; then
+    intake_sha256 "$path"
+  else
+    printf ''
+  fi
+}
+
 # MCP JSON 指纹：顶层 server 键排序、保留 args 顺序、env 键值
 # 凭据字段在此处已由 intake_strip_credentials 处理为占位符
 intake_fingerprint_mcp_json() {
@@ -176,20 +189,16 @@ intake_strip_credentials() {
     def is_ref: type == "string" and test("^\\$\\{secret:[A-Za-z0-9_]+\\}");
 
     # 递归脱敏：处理任意深度嵌套对象与数组
-    # 返回 {clean, creds, suspects}，creds/suspects 为累积列表
     def redact(path):
       if type == "object" then
         (to_entries | map(
           .key as $k | .value as $v | (path + [$k]) as $p |
           ($p | join(".")) as $pname |
           if ($k | senskey) then
-            # 已知敏感字段
             if ($v | is_ref) then
               {clean: {key: $k, value: $v}, creds: [{field: $pname, kind: "ref"}], suspects: []}
-            elif ($v | type) == "string" and ($v | length) > 0 then
-              {clean: {key: $k, value: "REDACTED"}, creds: [{field: $pname, kind: "cred"}], suspects: []}
             else
-              {clean: {key: $k, value: $v}, creds: [], suspects: []}
+              {clean: {key: $k, value: "REDACTED"}, creds: [{field: $pname, kind: "cred"}], suspects: []}
             end
           elif ($v | type) == "object" then
             ($v | redact($p)) as $r |
@@ -234,7 +243,7 @@ intake_strip_credentials() {
         suspects: $r.suspects
       }
     end
-  ' 2>/dev/null)"
+  ' 2>/dev/null)" || result=""
 
   # 脱敏失败：不回退为原始对象，返回空 sanitized + 全量 suspects
   if [ -z "$result" ] || ! printf '%s' "$result" | jq -e . >/dev/null 2>&1; then
@@ -417,6 +426,38 @@ intake_candidate_id() {
 intake_asset_id() {
   local type="$1" identity="$2"
   printf 'asset-%s\n' "$(intake_sha256_str "${type}|${identity}" | cut -c1-16)"
+}
+
+# 由「类型 + 内容指纹（+ 凭据指纹）」派生资产 ID
+# 未登记的既有源首次纳管时与入库使用同一规则，保证 Desktop 选到的目标与引擎解析一致
+intake_asset_id_from_identity() {
+  local type="$1" fingerprint="$2" cred="${3:-}"
+  if [ "$type" = "mcp" ]; then
+    intake_asset_id "$type" "${fingerprint}|${cred}"
+  else
+    intake_asset_id "$type" "$fingerprint"
+  fi
+}
+
+# 给规范源索引条目补 asset_id：已登记用 registry 的，未登记用派生 ID
+# 输入/输出：每行一个 JSON（含 type/fingerprint/cred_fingerprint/asset_id）
+intake_index_fill_asset_ids() {
+  local line type fp cred derived
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    type="$(printf '%s' "$line" | jq -r '.type // ""' 2>/dev/null)"
+    fp="$(printf '%s' "$line" | jq -r '.fingerprint // ""' 2>/dev/null)"
+    cred="$(printf '%s' "$line" | jq -r '.cred_fingerprint // ""' 2>/dev/null)"
+    if [ -z "$type" ] || [ -z "$fp" ]; then
+      printf '%s\n' "$line"
+      continue
+    fi
+    derived="$(intake_asset_id_from_identity "$type" "$fp" "$cred")"
+    printf '%s' "$line" | jq -c --arg d "$derived" '
+      if (.asset_id // null) == null
+      then . + {asset_id: $d, registered: false}
+      else . + {registered: true} end' 2>/dev/null
+  done
 }
 
 # ============================================================================

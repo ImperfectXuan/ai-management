@@ -48,3 +48,6 @@ Thumbs.db
 
 # Local overrides
 .ai-workspace/mcp/mcp.local.json
+
+# AI Workspace intake 本地记录区（批次/决定/凭据盐，不纳入版本控制）
+.ai-workspace/intake/

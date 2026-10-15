@@ -805,6 +805,7 @@ cmd_intake() {
       printf "  ${CYAN}                        scope: project|global (default project)\n"
       printf "  ${CYAN}--manual-file <path>${NC}  Manual rule file (repeatable)\n"
       printf "  ${CYAN}--manual-skill <path>${NC} Manual skill directory (repeatable)\n"
+      printf "  ${CYAN}--preview${NC}             Pure preview: output JSON, do not persist batch record\n"
       printf "  ${CYAN}--out-dir <path>${NC}     Batch output directory (default: <repo>/.ai-workspace/intake/batches/)\n"
       printf "  ${CYAN}--cancel-file <path>${NC} Cancel file path (touch to cancel)\n"
       printf "  ${CYAN}--json${NC}                JSON output to stdout\n"
@@ -826,7 +827,7 @@ cmd_intake() {
       printf "  ${CYAN}--batch <id>${NC}         Scan batch id\n"
       printf "  ${CYAN}--decisions <file>${NC}   Human decisions file (plan)\n"
       printf "  ${CYAN}--plan <file|id>${NC}     Review plan file or plan id (apply)\n"
-      printf "  ${CYAN}--resume${NC}             Continue a partial apply\n"
+      printf "  ${CYAN}--resume${NC}             Continue an interrupted apply (status=failed/incomplete)\n"
       printf "  ${CYAN}--cancel-file <path>${NC} Cancel file path (apply)\n"
       printf "  ${CYAN}--apply <id>${NC}         Apply id (rollback)\n"
       printf "  ${CYAN}--json${NC}                JSON output to stdout\n"
@@ -834,6 +835,7 @@ cmd_intake() {
       log_info "Examples:"
       printf "  aiws intake plan --repo ~/my-repo --batch <id> --decisions decisions.json\n"
       printf "  aiws intake apply --repo ~/my-repo --plan ~/my-repo/.ai-workspace/intake/plans/<plan-id>.json\n"
+      printf "  aiws intake status --repo ~/my-repo              # 总库全部执行历史与计划\n"
       printf "  aiws intake status --repo ~/my-repo --plan <plan-id>\n"
       printf "  aiws intake rollback --repo ~/my-repo --apply <apply-id>\n"
       echo ""
@@ -872,7 +874,7 @@ cmd_intake_scan() {
   . "${SCRIPT_DIR}/lib/intake/store.sh"
   . "${SCRIPT_DIR}/lib/import-mcp.sh"
 
-  local repo="" json_output=0 out_dir="" cancel_file=""
+  local repo="" json_output=0 out_dir="" cancel_file="" preview_mode=0
   local manual_files="" manual_skills=""
   INTAKE_SOURCES=""
 
@@ -903,6 +905,8 @@ cmd_intake_scan() {
       --manual-skill)
         manual_skills="${manual_skills}${2}
 "; shift 2 ;;
+      --preview)
+        preview_mode=1; json_output=1; shift ;;
       --out-dir)
         out_dir="$2"; shift 2 ;;
       --cancel-file)
@@ -953,8 +957,10 @@ cmd_intake_scan() {
   local result
   result="$(intake_scan)"
 
-  # 写入批次记录
-  if [ -n "${INTAKE_OUT_DIR:-}" ]; then
+  # 写入批次记录（--preview 时不持久化）
+  if [ "$preview_mode" = "1" ]; then
+    : # 纯预览：不写入批次记录
+  elif [ -n "${INTAKE_OUT_DIR:-}" ]; then
     printf '%s\n' "$result" > "${INTAKE_OUT_DIR}/scan.json"
   else
     intake_batch_write_scan "$repo" "$batch_id" "$result"
@@ -970,7 +976,11 @@ cmd_intake_scan() {
     err_count="$(printf '%s' "$result" | jq '.errors | length')"
     log_success "扫描完成 batch=${batch_id}"
     log_info "  来源: ${src_count}  资产候选: ${occ_count}  错误: ${err_count}"
-    log_info "  结果: $(intake_batch_dir "$repo" "$batch_id")/scan.json"
+    if [ "$preview_mode" = "1" ]; then
+      log_info "  模式: 纯预览（未保存批次记录）"
+    else
+      log_info "  结果: $(intake_batch_dir "$repo" "$batch_id")/scan.json"
+    fi
     if [ "$err_count" -gt 0 ]; then
       log_warn "  错误详情:"
       printf '%s' "$result" | jq -r '.errors[] | "    [\(.level)] \(.source // "?"): \(.message)"'
@@ -1051,12 +1061,15 @@ cmd_intake_compare() {
 
 # intake plan/apply/status/rollback 共用引擎加载
 intake_load_engine() {
+  . "${SCRIPT_DIR}/lib/intake/paths.sh"
   . "${SCRIPT_DIR}/lib/intake/identity.sh"
+  . "${SCRIPT_DIR}/lib/intake/credentials.sh"
   . "${SCRIPT_DIR}/lib/intake/scan.sh"
   . "${SCRIPT_DIR}/lib/intake/store.sh"
   . "${SCRIPT_DIR}/lib/intake/compare.sh"
   . "${SCRIPT_DIR}/lib/intake/plan.sh"
   . "${SCRIPT_DIR}/lib/intake/stage.sh"
+  . "${SCRIPT_DIR}/lib/intake/commit.sh"
   . "${SCRIPT_DIR}/lib/intake/recover.sh"
   . "${SCRIPT_DIR}/lib/intake/apply.sh"
   . "${SCRIPT_DIR}/lib/intake/model.sh"
@@ -1279,10 +1292,7 @@ cmd_intake_status() {
   if [ -z "$repo" ]; then
     die "intake status: 必须指定 --repo（总库路径）"
   fi
-  if [ -z "$plan_id" ] && [ -z "$batch" ]; then
-    die "intake status: 必须指定 --plan 或 --batch"
-  fi
-
+  # --plan/--batch 只是过滤条件：不带时查询总库全部执行历史与计划
   export INTAKE_REPO="$repo"
   export INTAKE_PLAN_ID="$plan_id"
   export INTAKE_BATCH_ID="$batch"

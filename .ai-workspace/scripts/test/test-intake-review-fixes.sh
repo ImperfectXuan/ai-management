@@ -122,13 +122,15 @@ STRIPPED="$(intake_strip_credentials '{broken' 2>/dev/null || true)"
 if echo "$STRIPPED" | jq -e '.suspects | length > 0' >/dev/null 2>&1; then
   t_pass "redact_failure_reports_suspect"
 else
-  t_pass "redact_failure_reports_suspect"  # jq 失败时返回空 sanitized
+  t_fail "redact_failure_reports_suspect (expected suspects on bad input)"
 fi
 
-# scan.json 批次记录无明文（手动写入批次模拟 CLI 行为）
-intake_batch_write_scan "$REPO" "batch-rf-01" "$RESULT"
-if [ -f "$REPO/.ai-workspace/intake/batches/batch-rf-01/scan.json" ]; then
-  expect_absent "$REPO/.ai-workspace/intake/batches/batch-rf-01/scan.json" "LEAK_NESTED_SECRET" 'scan_record_no_plaintext'
+# scan.json 批次记录无明文（使用 batch-rf-01 的结果，不用被覆盖的 RESULT）
+RESULT_01="$(run_scan "batch-rf-01-persist" "$SRC|cursor|project")"
+echo "$RESULT_01" > "${SANDBOX}/rf-01-persist.json"
+intake_batch_write_scan "$REPO" "batch-rf-01-persist" "$RESULT_01"
+if [ -f "$REPO/.ai-workspace/intake/batches/batch-rf-01-persist/scan.json" ]; then
+  expect_absent "$REPO/.ai-workspace/intake/batches/batch-rf-01-persist/scan.json" "LEAK_NESTED_SECRET" 'scan_record_no_plaintext'
 else
   t_fail "scan_record_no_plaintext (record not found)"
 fi
@@ -151,13 +153,21 @@ expect_json "$RESULT" '[.occurrences[] | select(.path | contains("linked")) | .r
 expect_json "$RESULT" '[.occurrences[] | select(.path | contains("linked")) | .read_error] | first' 'link_out_of_scope' 'home_link_error_msg'
 expect_absent "${SANDBOX}/rf-02.json" "secret-rule" 'home_content_not_read'
 
-# 父目录软链接越界（MCP 文件链接到越界目录下的文件）
-mkdir -p "$FAKE_HOME/outside-dir"
-echo '{"mcpServers": {"outside": {"command": "OUTSIDE_CMD"}}}' > "$FAKE_HOME/outside-dir/external.json"
-ln -sf "$FAKE_HOME/outside-dir/external.json" "$SRC/.cursor/mcp.json"
+# 父目录软链接越界（.cursor 目录本身是指向越界的链接）
+mkdir -p "$FAKE_HOME/outside-dir/rules"
+echo 'title: outside-rule' > "$FAKE_HOME/outside-dir/rules/outside.mdc"
+echo '{"mcpServers": {"outside": {"command": "OUTSIDE_CMD"}}}' > "$FAKE_HOME/outside-dir/mcp.json"
+# 替换 .cursor 为符号链接（必须先删除原目录）
+mv "$SRC/.cursor" "$SRC/.cursor.bak"
+ln -sf "$FAKE_HOME/outside-dir" "$SRC/.cursor"
 RESULT="$(run_scan "batch-rf-02b" "$SRC|cursor|project")"
-expect_json "$RESULT" '[.occurrences[] | select(.asset_type=="mcp") | .read_status] | first' 'unsupported' 'parent_dir_link_mcp_rejected'
-expect_absent "${SANDBOX}/rf-02b.json" "OUTSIDE_CMD" 'parent_dir_content_not_read' || true
+echo "$RESULT" > "${SANDBOX}/rf-02b.json"
+expect_json "$RESULT" '[.occurrences[] | select(.path | contains("outside")) | .read_status] | first' 'unsupported' 'parent_dir_link_rejected'
+expect_absent "${SANDBOX}/rf-02b.json" "OUTSIDE_CMD" 'parent_dir_content_not_read'
+expect_absent "${SANDBOX}/rf-02b.json" "outside-rule" 'parent_dir_rule_not_read'
+# 恢复
+rm -f "$SRC/.cursor"
+mv "$SRC/.cursor.bak" "$SRC/.cursor"
 
 # 合法链接（范围内）
 ln -sf "$SRC/.cursor/rules/linked.mdc" "$SRC/.cursor/rules/valid-link.mdc"
@@ -283,36 +293,155 @@ RESULT="$(run_scan "batch-rf-05b" "$CANON_SRC|cursor|project")"
 expect_json "$RESULT" '[.occurrences[] | select(.tool == "canonical")] | length' '3' 'canonical_with_generated_coexist'
 expect_json "$RESULT" '[.occurrences[] | select(.is_generated_copy == true)] | length' '1' 'generated_copy_flagged'
 
-# 规范源不修改来源文件
-BEFORE="$(find "$CANON_SRC" -type f -exec md5sum {} \; 2>/dev/null | sort || find "$CANON_SRC" -type f -exec md5 {} \; | sort)"
+# 规范源不修改来源文件（显式选择哈希工具，不依赖 pipeline 尾部成功）
+HASH_TOOL=""
+if command -v sha256sum >/dev/null 2>&1; then HASH_TOOL="sha256sum"
+elif command -v shasum >/dev/null 2>&1; then HASH_TOOL="shasum -a 256"
+elif command -v md5sum >/dev/null 2>&1; then HASH_TOOL="md5sum"
+elif command -v md5 >/dev/null 2>&1; then HASH_TOOL="md5"
+fi
+if [ -n "$HASH_TOOL" ]; then
+  t_pass "hash_tool_available"
+else
+  t_fail "hash_tool_available (no hash tool found)"
+fi
+
+BEFORE="$(find "$CANON_SRC" -type f | sort | while IFS= read -r f; do printf '%s %s\n' "$($HASH_TOOL < "$f" | awk '{print $1}')" "$f"; done)"
 run_scan "batch-rf-05c" "$CANON_SRC|auto|project" >/dev/null
-AFTER="$(find "$CANON_SRC" -type f -exec md5sum {} \; 2>/dev/null | sort || find "$CANON_SRC" -type f -exec md5 {} \; | sort)"
-if [ "$BEFORE" = "$AFTER" ]; then
+AFTER="$(find "$CANON_SRC" -type f | sort | while IFS= read -r f; do printf '%s %s\n' "$($HASH_TOOL < "$f" | awk '{print $1}')" "$f"; done)"
+if [ -n "$BEFORE" ] && [ "$BEFORE" = "$AFTER" ]; then
   t_pass "canonical_scan_readonly"
 else
-  t_fail "canonical_scan_readonly"
+  t_fail "canonical_scan_readonly (before=[$BEFORE] after=[$AFTER])"
 fi
 
-# ============================================================================
-# 六、哈希工具选择显式化
-# ============================================================================
-echo ""
-echo "--- 六、哈希工具 ---"
-
-# intake_sha256 应该用可用的哈希工具，pipeline 尾部成功不能掩盖回退
-HASH="$(echo "test" | intake_sha256 -)"
-if [ -n "$HASH" ] && [ "$HASH" != "nohash" ] && [ ${#HASH} -eq 64 ]; then
-  t_pass "hash_tool_selected_explicitly"
-else
-  t_fail "hash_tool_selected_explicitly (got: $HASH)"
-fi
-
-# 文件集合非空
+# 文件集合非空且包含预期文件
 MANIFEST="$(intake_skill_manifest "$CANON_SRC/.ai-workspace/skills/my-skill" 2>/dev/null)"
-if [ -n "$MANIFEST" ]; then
+if [ -n "$MANIFEST" ] && echo "$MANIFEST" | grep -q "SKILL.md"; then
   t_pass "skill_manifest_nonempty"
 else
-  t_fail "skill_manifest_nonempty"
+  t_fail "skill_manifest_nonempty (manifest=[$MANIFEST])"
+fi
+
+# ============================================================================
+# 七、非字符串敏感值脱敏
+# ============================================================================
+echo ""
+echo "--- 七、非字符串敏感值 ---"
+
+cat > "$SRC/.cursor/mcp.json" << 'EOF'
+{
+  "mcpServers": {
+    "nonstr": {
+      "TOKEN": ["SYNTHETIC_SECRET_ARRAY"],
+      "API_KEY": {"value": "SYNTHETIC_SECRET_OBJ"},
+      "authorization": {"value": "SYNTHETIC_SECRET_AUTH"},
+      "COUNT": 42,
+      "ENABLED": true,
+      "NORMAL": "keep-me"
+    }
+  }
+}
+EOF
+RESULT="$(run_scan "batch-rf-07" "$SRC|cursor|project")"
+echo "$RESULT" > "${SANDBOX}/rf-07.json"
+
+expect_absent "${SANDBOX}/rf-07.json" "SYNTHETIC_SECRET_ARRAY" 'nonstring_array_redacted'
+expect_absent "${SANDBOX}/rf-07.json" "SYNTHETIC_SECRET_OBJ" 'nonstring_object_redacted'
+expect_absent "${SANDBOX}/rf-07.json" "SYNTHETIC_SECRET_AUTH" 'nonstring_auth_redacted'
+expect_present "${SANDBOX}/rf-07.json" '"keep-me"' 'nonstring_normal_preserved'
+
+# 持久化结果也无明文
+intake_batch_write_scan "$REPO" "batch-rf-07" "$RESULT"
+if [ -f "$REPO/.ai-workspace/intake/batches/batch-rf-07/scan.json" ]; then
+  expect_absent "$REPO/.ai-workspace/intake/batches/batch-rf-07/scan.json" "SYNTHETIC_SECRET" 'nonstring_persist_no_plaintext'
+else
+  t_fail "nonstring_persist_no_plaintext (record not found)"
+fi
+
+# ============================================================================
+# 八、MCP 结构验证
+# ============================================================================
+echo ""
+echo "--- 八、MCP 结构验证 ---"
+
+# mcpServers 为字符串
+echo '{"mcpServers": "abc"}' > "$SRC/.cursor/mcp.json"
+RESULT="$(run_scan "batch-rf-08a" "$SRC|cursor|project")"
+expect_json "$RESULT" '[.occurrences[] | select(.asset_type=="mcp") | .read_status] | first' 'parse_error' 'mcpServers_string_error'
+
+# mcpServers 为数组
+echo '{"mcpServers": []}' > "$SRC/.cursor/mcp.json"
+RESULT="$(run_scan "batch-rf-08b" "$SRC|cursor|project")"
+expect_json "$RESULT" '[.occurrences[] | select(.asset_type=="mcp") | .read_status] | first' 'parse_error' 'mcpServers_array_error'
+
+# server 配置为字符串
+echo '{"mcpServers": {"bad": "not-an-object"}}' > "$SRC/.cursor/mcp.json"
+RESULT="$(run_scan "batch-rf-08c" "$SRC|cursor|project")"
+expect_json "$RESULT" '[.occurrences[] | select(.asset_type=="mcp") | .read_status] | first' 'parse_error' 'server_config_string_error'
+
+# 合法空配置
+echo '{"mcpServers": {}}' > "$SRC/.cursor/mcp.json"
+RESULT="$(run_scan "batch-rf-08d" "$SRC|cursor|project")"
+expect_json "$RESULT" '[.occurrences[] | select(.asset_type=="mcp") | .read_status] | first' 'ok' 'empty_servers_ok'
+
+# 坏来源与好来源同时扫描
+echo '{broken' > "$SRC/.cursor/mcp.json"
+printf '%s\n' '---' 'description: Keep' '---' '# Keep' > "$SRC/.cursor/rules/keep.mdc"
+RESULT="$(run_scan "batch-rf-08e" "$SRC|cursor|project")"
+expect_json "$RESULT" '[.occurrences[] | select(.path | contains("keep")) | .read_status] | first' 'ok' 'good_source_survives_bad_mcp'
+expect_json "$RESULT" '[.occurrences[] | select(.asset_type=="mcp") | .read_status] | first' 'parse_error' 'bad_mcp_still_reported'
+
+# ============================================================================
+# 九、手动路径授权范围
+# ============================================================================
+echo ""
+echo "--- 九、手动路径授权 ---"
+
+# 含空格路径：兄弟目录不应被授权
+mkdir -p "$SANDBOX/manual folder" "$SANDBOX/outside"
+echo '# Manual rule' > "$SANDBOX/manual folder/my rule.md"
+echo 'title: outside-secret' > "$SANDBOX/outside/secret.mdc"
+ln -sf "$SANDBOX/outside/secret.mdc" "$SANDBOX/manual folder/link.mdc"
+RESULT="$(run_scan "batch-rf-09" "" "$SANDBOX/manual folder/my rule.md")"
+echo "$RESULT" > "${SANDBOX}/rf-09.json"
+expect_json "$RESULT" '[.occurrences[] | select(.path | contains("my rule")) | .read_status] | first' 'ok' 'manual_file_spaces_ok'
+expect_absent "${SANDBOX}/rf-09.json" "outside-secret" 'sibling_not_authorized'
+
+# ============================================================================
+# 十、--preview 纯预览
+# ============================================================================
+echo ""
+echo "--- 十、--preview ---"
+
+PREVIEW_REPO="${SANDBOX}/preview-repo"
+mkdir -p "$PREVIEW_REPO/.ai-workspace/rules" "$PREVIEW_REPO/.ai-workspace/mcp"
+echo '{"servers":{}}' > "$PREVIEW_REPO/.ai-workspace/mcp/mcp.json"
+printf '%s\n' '---' 'description: Preview' '---' '# P' > "$SRC/.cursor/rules/preview.mdc"
+
+# 纯预览：输出 JSON，不写批次
+PREVIEW_OUT="$("${SCRIPT_DIR}/../aiws" intake scan --repo "$PREVIEW_REPO" --source "$SRC:cursor:project" --preview --json 2>/dev/null)"
+if [ -n "$PREVIEW_OUT" ] && printf '%s' "$PREVIEW_OUT" | jq -e '.schema' >/dev/null 2>&1; then
+  t_pass "preview_outputs_json"
+else
+  t_fail "preview_outputs_json"
+fi
+
+# 预览后无批次目录
+if [ ! -d "$PREVIEW_REPO/.ai-workspace/intake/batches" ]; then
+  t_pass "preview_no_batch_persisted"
+else
+  t_fail "preview_no_batch_persisted"
+fi
+
+# 来源文件不变
+PREVIEW_BEFORE="$(find "$SRC" -type f | sort | while IFS= read -r f; do printf '%s %s\n' "$($HASH_TOOL < "$f" | awk '{print $1}')" "$f"; done)"
+"${SCRIPT_DIR}/../aiws" intake scan --repo "$PREVIEW_REPO" --source "$SRC:cursor:project" --preview --json >/dev/null 2>&1
+PREVIEW_AFTER="$(find "$SRC" -type f | sort | while IFS= read -r f; do printf '%s %s\n' "$($HASH_TOOL < "$f" | awk '{print $1}')" "$f"; done)"
+if [ "$PREVIEW_BEFORE" = "$PREVIEW_AFTER" ]; then
+  t_pass "preview_no_source_change"
+else
+  t_fail "preview_no_source_change"
 fi
 
 # ============================================================================

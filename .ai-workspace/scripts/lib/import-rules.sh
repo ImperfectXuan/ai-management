@@ -151,7 +151,7 @@ register_mapping_entry() {
       continue
     fi
 
-    if grep -qF "$source_line" "$mapping"; then
+    if grep -qF -- "$source_line" "$mapping"; then
       add_registered_tool "$tool"
       continue
     fi
