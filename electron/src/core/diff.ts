@@ -1,6 +1,9 @@
 // electron/src/core/diff.ts
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { tmpdir } from 'node:os';
+import { syncRun } from './sync';
+import { WorkspaceError, ErrorCodes } from './errors';
 
 export interface DiffHunk {
   removed: string[];
@@ -50,14 +53,36 @@ export async function compareRuleToGenerated(
   tool: 'cursor' | 'trae',
   ruleId: string
 ): Promise<{ source: string; generated: string; diff: DiffResult }> {
-  const aiwsDir = path.join(root, '.ai-workspace');
-  const domain = await fs.access(path.join(aiwsDir, 'rules', 'domains', `${ruleId}.md`))
-    .then(() => true)
-    .catch(() => false);
-  const sourceFile = path.join(aiwsDir, 'rules', domain ? 'domains' : '', `${ruleId}.md`);
+  if (!['cursor', 'trae'].includes(tool) || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(ruleId)) {
+    throw new WorkspaceError(ErrorCodes.InvalidArgument, '差异对比需要有效的工具和规则 ID');
+  }
   const ext = tool === 'cursor' ? '.mdc' : '.md';
   const generatedFile = path.join(root, tool === 'cursor' ? '.cursor' : '.trae', 'rules', `${ruleId}${ext}`);
-  const source = await fs.readFile(sourceFile, 'utf8');
-  const generated = await fs.readFile(generatedFile, 'utf8').catch(() => '');
-  return { source, generated, diff: diffLines(source, generated) };
+  const sandbox = await fs.mkdtemp(path.join(tmpdir(), 'aiws-diff-'));
+  try {
+    // 用同一 CLI 在临时目录生成预期产物，避免把正常的 frontmatter 转换误报为漂移。
+    for (const dir of ['scripts', 'rules', 'adapters', 'memory/context']) {
+      const from = path.join(root, '.ai-workspace', dir);
+      try {
+        await fs.cp(from, path.join(sandbox, '.ai-workspace', dir), { recursive: true });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || dir !== 'memory/context') throw error;
+      }
+    }
+    for await (const _line of syncRun(sandbox, { tool, only: 'rules' })) { /* 只在临时目录生成 */ }
+    const relative = path.relative(root, generatedFile);
+    const source = await readGenerated(path.join(sandbox, relative));
+    const generated = await readGenerated(generatedFile);
+    return { source, generated, diff: diffLines(source, generated) };
+  } finally {
+    await fs.rm(sandbox, { recursive: true, force: true });
+  }
+}
+
+async function readGenerated(file: string): Promise<string> {
+  try { return await fs.readFile(file, 'utf8'); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return '';
+    throw error;
+  }
 }

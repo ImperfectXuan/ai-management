@@ -29,14 +29,17 @@ export function DiffPage({ repoId }: { repoId: string }) {
 
   const compare = useCallback(async () => {
     if (!ruleId) return;
-    setData(await invoke<DiffData>(IPC.DiffCompare, { repoId, tool, ruleId }));
+    try { setData(await invoke<DiffData>(IPC.DiffCompare, { repoId, tool, ruleId })); }
+    catch (e) { setData(null); setMsg((e as Error).message); }
   }, [repoId, tool, ruleId]);
   useEffect(() => { if (ruleId) compare(); }, [ruleId, tool, compare]);
 
   const apply = async () => {
-    await invoke(IPC.SyncRun, { repoId, tool });
-    setMsg(`已同步 ${tool} 规则`);
-    compare();
+    try {
+      await invoke(IPC.SyncRun, { repoId, tool, only: 'rules' });
+      setMsg(`已同步 ${tool} 规则`);
+      await compare();
+    } catch (e) { setMsg((e as Error).message); }
   };
 
   return (

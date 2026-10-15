@@ -6,7 +6,6 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { gitRoot, runGit } from '../src/core/git';
 import { ErrorCodes } from '../src/core/errors';
-import { realpathSync } from 'node:fs';
 
 test('gitRoot 在非 git 目录抛 NotAGitRepo', async () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'aiws-'));

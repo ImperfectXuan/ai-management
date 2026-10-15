@@ -17,22 +17,26 @@ export function RulesPage({ repoId }: { repoId: string }) {
   const [msg, setMsg] = useState('');
 
   const load = useCallback(async () => {
-    try { setRules(await invoke<Rule[]>(IPC.RulesList, repoId)); setDirty(false); } catch (e) { setMsg((e as Error).message); }
+    try { setRules(await invoke<Rule[]>(IPC.RulesList, repoId)); } catch (e) { setMsg((e as Error).message); }
   }, [repoId]);
   useEffect(() => { load(); }, [load]);
 
   const toggle = async (r: Rule) => {
-    const newValue = !r.requiredByTool[tool];
-    await invoke(IPC.RulesSetRequired, { repoId, tool, id: r.id, domain: r.domain, value: newValue });
-    setDirty(true);
-    load();
+    try {
+      const newValue = !r.requiredByTool[tool];
+      await invoke(IPC.RulesSetRequired, { repoId, tool, id: r.id, domain: r.domain, value: newValue });
+      setDirty(true);
+      await load();
+    } catch (e) { setMsg((e as Error).message); }
   };
 
   const sync = async () => {
-    await invoke(IPC.SyncRun, { repoId, tool });
-    setDirty(false);
-    setMsg(`已同步 ${TOOL_LABELS[tool]} 规则`);
-    load();
+    try {
+      await invoke(IPC.SyncRun, { repoId, tool, only: 'rules' });
+      setDirty(false);
+      setMsg(`已同步 ${TOOL_LABELS[tool]} 规则`);
+      await load();
+    } catch (e) { setMsg((e as Error).message); }
   };
 
   return (
@@ -59,6 +63,7 @@ export function RulesPage({ repoId }: { repoId: string }) {
           <label className="switch">
             <input
               type="checkbox"
+              aria-label={`常驻加载 ${r.id}`}
               checked={r.requiredByTool[tool] ?? false}
               onChange={() => toggle(r)}
             />

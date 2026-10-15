@@ -1,7 +1,7 @@
 // electron/test/sync.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
@@ -11,6 +11,7 @@ import { generateRuleFiles, syncRun } from '../src/core/sync';
 function makeWorkspace() {
   const root = mkdtempSync(path.join(tmpdir(), 'aiws-sync-'));
   const aiws = path.join(root, '.ai-workspace');
+  cpSync(path.resolve(__dirname, '../../.ai-workspace/scripts'), path.join(aiws, 'scripts'), { recursive: true });
   mkdirSync(path.join(aiws, 'rules', 'domains'), { recursive: true });
   mkdirSync(path.join(aiws, 'adapters', 'cursor'), { recursive: true });
   mkdirSync(path.join(aiws, 'adapters', 'trae'), { recursive: true });
@@ -125,7 +126,7 @@ test('syncRun 产出进度行并完成 MCP 同步', async () => {
   const root = makeWorkspace();
   const lines: string[] = [];
   for await (const line of syncRun(root)) lines.push(line);
-  assert.ok(lines.some((l) => l.includes('已生成')));
+  assert.ok(lines.some((l) => l.includes('Generated:')));
   const mcpOut = await fs.readFile(path.join(root, '.cursor', 'mcp.json'), 'utf8');
   assert.ok(mcpOut.includes('mcpServers'));
 });
@@ -192,4 +193,47 @@ test('generateRuleFiles 传入 project scope 仍生成核心规则且不备份',
   assert.ok(files.includes('vue3.mdc'), '领域规则应生成');
   assert.strictEqual(count, 2);
   assert.ok(!backedUp.some((name) => name.startsWith('00-core')));
+});
+
+
+test('syncRun_fourTools_sharesCliContextAndSkills', async () => {
+  const root = makeWorkspace();
+  const aiws = path.join(root, '.ai-workspace');
+  mkdirSync(path.join(aiws, 'memory/context'), { recursive: true });
+  writeFileSync(path.join(aiws, 'memory/context/project.md'), '---\nid: project\ntitle: 演示项目\n---\n# 演示项目\n\n演示上下文。\n');
+  mkdirSync(path.join(aiws, 'skills/demo'), { recursive: true });
+  writeFileSync(path.join(aiws, 'skills/demo/SKILL.md'), '---\nname: demo\ndescription: 演示技能\n---\n# Demo\n');
+  const lines: string[] = [];
+
+  for await (const line of syncRun(root)) lines.push(line);
+
+  for (const file of ['AGENTS.md', 'CLAUDE.md', '.cursor/rules/00-context.mdc', '.trae/rules/00-context.md']) {
+    assert.match(readFileSync(path.join(root, file), 'utf8'), /演示上下文/);
+  }
+  for (const dir of ['.agents', '.cursor', '.trae']) {
+    assert.match(readFileSync(path.join(root, dir, 'skills/demo/SKILL.md'), 'utf8'), /演示技能/);
+  }
+  assert.strictEqual(lines.at(-1), '同步完成');
+});
+
+test('syncRun_rulesOnly_doesNotWriteMcpOrSkills', async () => {
+  const root = makeWorkspace();
+
+  for await (const _line of syncRun(root, { tool: 'codex', only: 'rules' })) { /* 消费进度 */ }
+
+  assert.ok(existsSync(path.join(root, 'AGENTS.md')));
+  assert.ok(!existsSync(path.join(root, '.cursor/mcp.json')));
+  assert.ok(!existsSync(path.join(root, '.agents/skills')));
+});
+
+test('syncRun_cliFailure_doesNotReportSuccess', async () => {
+  const root = makeWorkspace();
+  writeFileSync(path.join(root, '.ai-workspace/scripts/aiws'), '#!/bin/sh\necho failed >&2\nexit 2\n');
+  const lines: string[] = [];
+
+  await assert.rejects(async () => {
+    for await (const line of syncRun(root)) lines.push(line);
+  }, /退出码 2/);
+
+  assert.ok(!lines.includes('同步完成'));
 });

@@ -167,7 +167,7 @@ export async function listRules(root: string): Promise<Rule[]> {
   for (const sub of ['', 'domains']) {
     const dir = path.join(rulesDir, sub);
     const files = await fs.readdir(dir).catch(() => [] as string[]);
-    for (const f of files.filter((f) => f.endsWith('.md')).sort()) {
+    for (const f of files.filter((f) => f.endsWith('.md') && f !== 'CHANGELOG.md').sort()) {
       const content = await fs.readFile(path.join(dir, f), 'utf8');
       const domain = sub === 'domains';
       const rel = domain ? `rules/domains/${f}` : `rules/${f}`;

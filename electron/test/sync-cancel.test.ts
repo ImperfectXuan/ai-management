@@ -1,7 +1,7 @@
 // electron/test/sync-cancel.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { syncRun } from '../src/core/sync';
@@ -16,6 +16,25 @@ test('syncRun 中止后停止产出新行', async () => {
   const controller = new AbortController();
   controller.abort();
   const lines: string[] = [];
-  for await (const line of syncRun(root, {}, controller.signal)) lines.push(line);
+  await assert.rejects(async () => {
+    for await (const line of syncRun(root, {}, controller.signal)) lines.push(line);
+  }, /同步已取消/);
   assert.ok(lines.length === 0 || lines[lines.length - 1] !== '同步完成');
+});
+
+test('syncRun_abortWhileRunning_stopsChildWritesAndRejects', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'aiws-cancel-running-'));
+  mkdirSync(path.join(root, '.ai-workspace/scripts'), { recursive: true });
+  writeFileSync(path.join(root, '.ai-workspace/scripts/aiws'), '#!/bin/sh\necho ready\nsleep 2\necho late > late-write\n', { mode: 0o755 });
+  const controller = new AbortController();
+  try {
+    await assert.rejects(async () => {
+      for await (const line of syncRun(root, {}, controller.signal)) {
+        if (line === 'ready') controller.abort();
+      }
+    }, /同步已取消/);
+    assert.equal(existsSync(path.join(root, 'late-write')), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

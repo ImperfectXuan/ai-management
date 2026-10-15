@@ -7,10 +7,11 @@ import { IPC } from '../shared/ipc';
 import * as rulesApi from '../core/rules';
 import * as mcpApi from '../core/mcp';
 import * as skillsApi from '../core/skills';
-import { syncRun } from '../core/sync';
+import { syncRun, type SyncOptions } from '../core/sync';
 import { compareRuleToGenerated } from '../core/diff';
-import { runAiwsBridge } from '../core/vault-bridge';
+import { runAiwsJson } from '../core/vault-bridge';
 import { validateRulesSetRequiredArgs } from './rules-args';
+import { registerIntakeIpc } from './intake-ipc';
 
 export const store = new WorkspaceStore(path.join(app.getPath('userData'), 'repos.json'));
 
@@ -83,21 +84,20 @@ export function registerIpc() {
 
   handle(IPC.SecretsList, async (repoId: string) => {
     const repo = await store.get(repoId);
-    const res = await runAiwsBridge(repo.path, ['secrets', 'list', '--json']);
-    return safeParse(res.stdout);
+    return runAiwsJson(repo.path, ['secrets', 'list', '--json']);
   });
   handle(IPC.SecretsAudit, async (repoId: string) => {
     const repo = await store.get(repoId);
-    const res = await runAiwsBridge(repo.path, ['secrets', 'audit', '--json']);
-    return safeParse(res.stdout);
+    return runAiwsJson(repo.path, ['secrets', 'audit', '--json']);
   });
 
-  handle(IPC.SyncRun, async (args: { repoId: string; tool?: string }) => {
+  handle(IPC.SyncRun, async (args: { repoId: string } & SyncOptions) => {
     const repo = await store.get(args.repoId);
+    if (syncStates.has(repo.id)) throw new WorkspaceError('SyncFailed', '该仓库正在同步，请等待完成或取消');
     const controller = new AbortController();
     syncStates.set(repo.id, { controller });
     try {
-      for await (const line of syncRun(repo.path, { tool: args.tool }, controller.signal)) {
+      for await (const line of syncRun(repo.path, { tool: args.tool, scope: args.scope, only: args.only }, controller.signal)) {
         broadcast(IPC.SyncProgress, { repoId: repo.id, line });
       }
       await store.update({ ...repo, lastSyncAt: new Date().toISOString() });
@@ -115,6 +115,7 @@ export function registerIpc() {
   handle(IPC.SyncAll, async () => {
     const repos = await store.load();
     for (const repo of repos) {
+      if (syncStates.has(repo.id)) throw new WorkspaceError('SyncFailed', '仓库正在同步，请稍后重试');
       const controller = new AbortController();
       syncStates.set(repo.id, { controller });
       try {
@@ -134,8 +135,6 @@ export function registerIpc() {
     const repo = await store.get(args.repoId);
     return compareRuleToGenerated(repo.path, args.tool, args.ruleId);
   });
-}
 
-function safeParse(text: string): unknown {
-  try { return JSON.parse(text); } catch { return { error: text.slice(0, 300) }; }
+  registerIntakeIpc({ handle }, broadcast);
 }

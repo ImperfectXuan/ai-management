@@ -1,196 +1,112 @@
-// electron/src/core/sync.ts
+import { spawn } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { hasMappingSource, listRules, ruleAppliesToTool } from './rules';
-import { loadConfig, getToolMcpPath } from './config';
-import { listMcp, mergeLocalMcp, getServersForScope, McpServersMap } from './mcp';
+import { createInterface } from 'node:readline';
+import { PassThrough } from 'node:stream';
+import { WorkspaceError, ErrorCodes } from './errors';
+import { SUPPORTED_TOOLS } from '../shared/tools';
 
 export interface SyncOptions {
   scope?: 'global' | 'project';
   tool?: string;
+  only?: 'rules' | 'mcp' | 'skills';
 }
 
-function stripFrontmatter(content: string): string {
-  const lines = content.split('\n');
-  let c = 0;
-  let i = 0;
-  for (; i < lines.length; i++) {
-    if (/^---$/.test(lines[i])) {
-      c++;
-      if (c === 2) { i++; break; }
-    }
+const SYNC_TIMEOUT_MS = 300_000;
+const KILL_GRACE_MS = 1_000;
+
+function syncArgs(opts: SyncOptions): string[] {
+  if (opts.tool && !SUPPORTED_TOOLS.some((tool) => tool === opts.tool)) {
+    throw new WorkspaceError(ErrorCodes.UnsupportedTool, `不支持的同步工具：${opts.tool}`);
   }
-  return lines.slice(i).join('\n');
+  if (opts.scope && !['global', 'project'].includes(opts.scope)) {
+    throw new WorkspaceError(ErrorCodes.InvalidArgument, '同步 scope 必须是 project 或 global');
+  }
+  if (opts.only && !['rules', 'mcp', 'skills'].includes(opts.only)) {
+    throw new WorkspaceError(ErrorCodes.InvalidArgument, '同步模块必须是 rules、mcp 或 skills');
+  }
+  const args = ['sync', '--scope', opts.scope ?? 'project'];
+  if (opts.tool) args.push('--tool', opts.tool);
+  if (opts.only) args.push('--only', opts.only);
+  return args;
 }
 
-// 不删用户手放文件：把 out_dir 中**不在预期生成集合**里的项重命名为
-// `*.bak`；若同名 .bak 已存在，附加时间戳避免覆盖。返回被备份的 basename 列表。
-// - 子目录同样按目录名备份（不再 `fs.rm` 因缺 {recursive:true} 失败而半途崩）
-// - 已存在的 `*.bak` 不重复处理
-async function safeCleanOutDir(
-  outDir: string,
-  expectedFiles: Set<string>,
-  logger: (msg: string) => void
-): Promise<string[]> {
-  let entries: string[];
-  try {
-    entries = await fs.readdir(outDir);
-  } catch {
-    return [];
-  }
-  const backedUp: string[] = [];
-  for (const f of entries) {
-    if (f.endsWith('.bak')) continue;
-    if (expectedFiles.has(f)) continue;
-    const src = path.join(outDir, f);
-    const stat = await fs.lstat(src).catch(() => null);
-    if (!stat) continue;
-
-    let bak = path.join(outDir, `${f}.bak`);
-    // 避免覆盖已有 .bak：附 ISO 时间戳
-    if (await fs.access(bak).then(() => true, () => false)) {
-      bak = path.join(outDir, `${f}.${new Date().toISOString().replace(/[:.]/g, '-')}.bak`);
-    }
-    await fs.rename(src, bak);
-    backedUp.push(path.basename(bak));
-    logger(
-      stat.isDirectory()
-        ? `[aiws] 已将非预期目录备份为 ${path.basename(bak)}（原: ${f}/）`
-        : `[aiws] 已将非预期文件备份为 ${path.basename(bak)}（原: ${f}）`
-    );
-  }
-  return backedUp;
-}
-
-export async function generateRuleFiles(
-  root: string,
-  tool: 'cursor' | 'trae',
-  targetScope?: string
-): Promise<{ count: number; backedUp: string[] }> {
-  const aiwsDir = path.join(root, '.ai-workspace');
-  const ext = tool === 'cursor' ? '.mdc' : '.md';
-  const outDir = tool === 'cursor' ? path.join(root, '.cursor', 'rules') : path.join(root, '.trae', 'rules');
-  const mappingFile = path.join(aiwsDir, 'adapters', tool, 'mapping.yaml');
-  const mapping = await fs.readFile(mappingFile, 'utf8').catch(() => '');
-
-  await fs.mkdir(outDir, { recursive: true });
-
-  const rules = await listRules(root);
-
-  // --scope 只约束 MCP/技能写入位置；规则始终生成到仓库内 .cursor/.trae，
-  // 不得按 core/domain 切割，否则 project 会把核心规则备份成 .bak。
-  void targetScope;
-
-  // 第一遍：算出本次会生成的文件名集合，作为白名单
-  const expected = new Set<string>();
-  for (const rule of rules) {
-    const rel = rule.domain ? `rules/domains/${rule.id}.md` : `rules/${rule.id}.md`;
-    if (!hasMappingSource(mapping, rel)) continue;
-    if (!ruleAppliesToTool(rule, tool)) continue;
-    expected.add(`${rule.id}${ext}`);
-  }
-
-  // 用白名单 + .bak 备份替代无差别 `rm -f out_dir/*`
-  const backedUp = await safeCleanOutDir(outDir, expected, (m) => console.warn(m));
-
-  // 第二遍：生成（writeFile 会覆盖白名单中的同名文件，无需先删）
-  let count = 0;
-  for (const rule of rules) {
-    const rel = rule.domain ? `rules/domains/${rule.id}.md` : `rules/${rule.id}.md`;
-    if (!hasMappingSource(mapping, rel)) continue;
-    if (!ruleAppliesToTool(rule, tool)) continue;
-
-    const srcFile = path.join(aiwsDir, 'rules', rule.domain ? 'domains' : '', `${rule.id}.md`);
-    const content = await fs.readFile(srcFile, 'utf8');
-    const description = content.match(/^description:\s*(.+)$/m)?.[1]?.trim()
-      ?? content.match(/^title:\s*(.+)$/m)?.[1]?.trim()
-      ?? rule.id;
-    const scene = tool === 'cursor' && (rule.id === '05-version-control' || rule.id === 'global-workflow')
-      ? 'scene: git_message'
-      : '';
-    // per-tool required:不同工具的 mapping 各持一份
-    const required = rule.requiredByTool[tool] ?? false;
-
-    const front = [
-      '---',
-      '# Generated by AI Workspace - DO NOT EDIT MANUALLY',
-      `description: ${description}`,
-      `globs: "${rule.globs}"`,
-      `alwaysApply: ${required}`,
-      scene,
-      '---',
-    ].filter((l) => l !== '').join('\n');
-
-    const body = stripFrontmatter(content);
-    await fs.writeFile(path.join(outDir, `${rule.id}${ext}`), `${front}\n${body}\n`, 'utf8');
-    count++;
-  }
-  return { count, backedUp };
-}
-
-function jsonToToml(servers: McpServersMap): string {
-  const out: string[] = [];
-  for (const [name, s] of Object.entries(servers)) {
-    out.push(`[mcp_servers.${name}]`);
-    if (s.command) out.push(`command = "${s.command}"`);
-    const args = Array.isArray(s.args) ? s.args : [];
-    if (args.length) out.push(`args = [${args.map((a: string) => `"${a}"`).join(', ')}]`);
-    if (s.url) out.push(`url = "${s.url}"`);
-    out.push('');
-  }
-  return out.join('\n');
-}
-
-export async function syncMcpForTool(root: string, tool: string, scope: 'global' | 'project'): Promise<void> {
-  const aiwsDir = path.join(root, '.ai-workspace');
-  const targetPath = getToolMcpPath(root, tool, scope);
-  if (!targetPath) return;
-  const base = await listMcp(root).then((list) => {
-    const m: McpServersMap = {};
-    for (const s of list) { const { name, ...rest } = s; m[name] = rest; }
-    return m;
-  });
-  const local = await fs.readFile(path.join(aiwsDir, 'mcp', 'mcp.local.json'), 'utf8')
-    .then((raw) => (JSON.parse(raw).servers ?? {}) as McpServersMap)
-    .catch(() => ({} as McpServersMap));
-  const merged = mergeLocalMcp(base, local);
-  const servers = getServersForScope(merged, scope);
-  const clean: McpServersMap = {};
-  for (const [name, s] of Object.entries(servers)) {
-    const { scope: _scope, ...rest } = s;
-    clean[name] = rest;
-  }
-  if (!Object.keys(clean).length) return;
-  const output = tool === 'codex' ? jsonToToml(clean) : JSON.stringify({ mcpServers: clean }, null, 2);
-  await fs.mkdir(path.dirname(targetPath), { recursive: true });
-  await fs.writeFile(targetPath, output + '\n', 'utf8');
-}
-
+/** 桌面端复用目标工作区的 CLI 引擎，默认仅写项目范围，逐行报告进度。
+ * CLI 缺失、失败、超时或取消均抛错；取消不会报告“同步完成”。
+ */
 export async function* syncRun(root: string, opts: SyncOptions = {}, signal?: AbortSignal): AsyncGenerator<string> {
-  yield '开始同步';
-  const aiwsDir = path.join(root, '.ai-workspace');
-  const cfg = await loadConfig(aiwsDir);
-  const tools = opts.tool ? [opts.tool] : cfg.tools;
-  const scopes: Array<'global' | 'project'> = opts.scope ? [opts.scope] : ['global', 'project'];
-
-  if (signal?.aborted) return;
-  yield '同步规则...';
-  for (const tool of tools) {
-    if (tool === 'cursor' || tool === 'trae') {
-      const { count, backedUp } = await generateRuleFiles(root, tool, opts.scope);
-      const tail = backedUp.length ? `，已备份 ${backedUp.length} 个非预期文件` : '';
-      yield `已生成 ${tool} 规则 ${count} 个${tail}`;
-    } else {
-      yield `跳过 ${tool} 规则生成（单文件模式，暂不支持）`;
+  const args = syncArgs(opts);
+  if (signal?.aborted) throw new WorkspaceError(ErrorCodes.SyncCancelled, '同步已取消');
+  yield '开始同步（项目范围为默认值）';
+  const child = spawn(path.join(root, '.ai-workspace/scripts/aiws'), args, {
+    cwd: root,
+    env: { ...process.env, AIWS_ROOT: root },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    // 单独的进程组使取消能终止 shell 派生的 jq/cp 等子进程。
+    detached: process.platform !== 'win32',
+  });
+  const output = new PassThrough();
+  child.stdout.pipe(output, { end: false });
+  child.stderr.pipe(output, { end: false });
+  let closed = false;
+  let spawnError: Error | undefined;
+  child.on('error', (error) => { spawnError = error; });
+  const completion = new Promise<{ code: number | null; signal: string | null }>((resolve) => {
+    child.on('close', (code, exitSignal) => {
+      closed = true;
+      output.end();
+      resolve({ code, signal: exitSignal });
+    });
+  });
+  const kill = (killSignal: NodeJS.Signals) => {
+    if (!child.pid) return;
+    try {
+      if (process.platform === 'win32') child.kill(killSignal);
+      else process.kill(-child.pid, killSignal);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ESRCH') console.error('[sync:cancel]', { root, error });
     }
-  }
-
-  if (signal?.aborted) return;
-  yield '同步 MCP...';
-  for (const tool of tools) {
-    for (const scope of scopes) {
-      await syncMcpForTool(root, tool, scope);
+  };
+  let forceKill: NodeJS.Timeout | undefined;
+  const stop = () => {
+    kill('SIGTERM');
+    forceKill ??= setTimeout(() => kill('SIGKILL'), KILL_GRACE_MS);
+  };
+  let timedOut = false;
+  const timeout = setTimeout(() => { timedOut = true; stop(); }, SYNC_TIMEOUT_MS);
+  signal?.addEventListener('abort', stop, { once: true });
+  if (signal?.aborted) stop();
+  const lines = createInterface({ input: output });
+  try {
+    for await (const line of lines) {
+      if (signal?.aborted || timedOut) break;
+      if (line.trim()) yield line;
     }
+    const result = await completion;
+    if (signal?.aborted) throw new WorkspaceError(ErrorCodes.SyncCancelled, '同步已取消，部分文件可能已生成，请重新同步');
+    if (spawnError || result.code !== 0 || timedOut) {
+      console.error('[sync:failed]', { root, args, code: result.code, signal: result.signal, spawnError, timedOut });
+      throw new WorkspaceError(ErrorCodes.SyncFailed, timedOut ? '同步超时，请检查 CLI 与依赖' : `同步失败（退出码 ${result.code ?? '未知'}），请检查同步日志与 CLI 安装`);
+    }
+    yield '同步完成';
+  } finally {
+    if (!closed) { stop(); await completion; }
+    lines.close();
+    clearTimeout(timeout);
+    clearTimeout(forceKill);
+    signal?.removeEventListener('abort', stop);
   }
-  yield '同步完成';
+}
+
+/** 单工具规则生成也经过 CLI，返回规则数和本轮备份文件名。 */
+export async function generateRuleFiles(root: string, tool: 'cursor' | 'trae', scope?: string): Promise<{ count: number; backedUp: string[] }> {
+  const outDir = path.join(root, `.${tool}`, 'rules');
+  const before = new Set(await fs.readdir(outDir).catch(() => [] as string[]));
+  for await (const _line of syncRun(root, { tool, only: 'rules', scope: scope as SyncOptions['scope'] })) { /* CLI 是唯一生成实现 */ }
+  const after = await fs.readdir(outDir);
+  const ext = tool === 'cursor' ? '.mdc' : '.md';
+  return {
+    count: after.filter((file) => file.endsWith(ext) && file !== `00-context${ext}`).length,
+    backedUp: after.filter((file) => file.endsWith('.bak') && !before.has(file)),
+  };
 }

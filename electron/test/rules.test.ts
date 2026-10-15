@@ -46,6 +46,15 @@ test('listRules 读取规则 + requiredByTool + domain 标志', async () => {
   assert.strictEqual(vue.globs, '**/*.{vue,ts,js,css,scss}');
 });
 
+test('listRules_versioningChangelog_isNotCountedAsRule', async () => {
+  const root = makeWorkspace();
+  writeFileSync(path.join(root, '.ai-workspace/rules/CHANGELOG.md'), '# 规则版本记录\n');
+
+  const rules = await listRules(root);
+
+  assert.deepStrictEqual(rules.map((rule) => rule.id).sort(), ['00-core', 'vue3']);
+});
+
 test('listRules cursor mapping 不存在时 requiredByTool.cursor 默认为 false', async () => {
   const root = mkdtempSync(path.join(tmpdir(), 'aiws-rules-noadapter-'));
   const aiws = path.join(root, '.ai-workspace');

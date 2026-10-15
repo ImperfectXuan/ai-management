@@ -2,8 +2,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-export interface McpServer {
-  name: string;
+export interface McpServerConfig {
   command?: string;
   url?: string;
   args?: string[];
@@ -11,7 +10,11 @@ export interface McpServer {
   [key: string]: unknown;
 }
 
-export type McpServersMap = Record<string, Omit<McpServer, 'name'>>;
+export interface McpServer extends McpServerConfig {
+  name: string;
+}
+
+export type McpServersMap = Record<string, McpServerConfig>;
 
 async function readServers(aiwsDir: string): Promise<McpServersMap> {
   const file = path.join(aiwsDir, 'mcp', 'mcp.json');
