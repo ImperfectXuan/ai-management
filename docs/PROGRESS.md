@@ -43,14 +43,18 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 
 ### 新增功能 002 · 持久化同步版本状态
 
-2026-10-15：用户选定方案 2，已编写 [规格](specs/002-sync-status/spec.md)、[设计](specs/002-sync-status/design.md)、[任务](specs/002-sync-status/tasks.md) 与 [验证计划](specs/002-sync-status/verification.md)，基于已提交 `81195b4`。规格工程细则为草案，本轮只交付文档；以下实施任务均未开始，AC-002-01～18 未执行。
+2026-10-15：用户选定方案 2，已编写 [规格](specs/002-sync-status/spec.md)、[设计](specs/002-sync-status/design.md)、[任务](specs/002-sync-status/tasks.md) 与 [验证计划](specs/002-sync-status/verification.md)，基于已提交 `81195b4`。规格工程细则为草案，该轮只交付文档；实施状态与验收结果以下表及 [verification](specs/002-sync-status/verification.md) 为准。
+
+同日评审整改：用户确认采用 1A（共享输出等价判定）+ 2A（密钥派生 keyId）。[设计](specs/002-sync-status/design.md) 已补充共享写入的暂时失效与成功后原子恢复、keyId 持久化和替换检测；同步修订验收、任务及验证计划。两项方案选择已确认，其余工程细则仍为草案。
+
+同日实现轮（commit `c95bc73`）：落地共享状态契约、指纹/keyId 与本机 Store 的等价判定协议（design §2.3、§3.1），新增 40 项行为测试、全量 Electron 169/169；AC-002-02、06、10、12、14、18 为存储/指纹层部分通过，其余未执行。CLI 回执、`--describe-inputs`、sync-service、IPC 与界面仍未实现。
 
 | 任务 ID | 交付 | 实施状态 | 完成证据 |
 |---|---|---|---|
-| TASK-002-01 | 状态契约、本机 Store 与恢复 | 待开始 | 无实现证据 |
-| TASK-002-02 | 输入描述、指纹与本机密钥 | 待开始 | 无实现证据 |
+| TASK-002-01 | 状态契约、本机 Store 与恢复 | 进行中 | `shared/sync-status.ts`、`core/sync-status-store.ts` + store/status 测试；原子持久化、校验降级、running 恢复已落地，路径 realpath/别名身份与 workspace 集成未完成 |
+| TASK-002-02 | 输入描述、指纹与本机密钥 | 进行中 | `core/sync-fingerprint.ts` + 15 项指纹测试：keyId 派生/只读检查、来源与有效输出 HMAC 指纹；CLI `--describe-inputs` 与生成器依赖清单未实现 |
 | TASK-002-03 | CLI 单元回执与跳过/失败语义 | 待开始 | 无实现证据 |
-| TASK-002-04 | 统一执行服务、持久化与目标锁 | 待开始 | 无实现证据 |
+| TASK-002-04 | 统一执行服务、持久化与目标锁 | 进行中 | 等价候选“快照→先失效→原子恢复”协议已在 Store 层实现（`sync-status.test.ts` 15 例）；sync-service 编排、输出锁与 CLI 接线未开始 |
 | TASK-002-05 | 全部 Desktop 写入入口与单项 Skills 接线 | 待开始 | 无实现证据 |
 | TASK-002-06 | 状态查询、界面与刷新 | 待开始 | 无实现证据 |
 | TASK-002-07 | 集成/原生验收、文档与发布收尾 | 待开始 | 无实现证据 |
@@ -107,7 +111,15 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 
 ## 5. 近期完成记录
 
+### 2026-10-15 · 002 等价判定与密钥身份实现
+
+- 落地 `shared/sync-status.ts`、`core/sync-fingerprint.ts`、`core/sync-status-store.ts`：keyId 派生与替换检测、来源/有效输出 HMAC 指纹、原子持久化与等价候选“先失效、成功后原子恢复”协议；运行中换密钥拒绝提交，不为未执行工具创建成功基线。
+- 新增 40 项行为测试；共享 Skills 永久互斥失效回路有回归守护（重复完整同步双方保持 current、失败不恢复候选）。全量 Electron 169/169，typecheck 与 build 通过。
+- 未接 CLI 回执、`--describe-inputs`、sync-service 与界面；AC-002-02、06、10、12、14、18 为存储/指纹层部分通过，其余未执行，见 [verification](specs/002-sync-status/verification.md)。
+
 ### 2026-10-15 · 同步版本状态 SDD 文档
+
+- 评审整改：按用户确认的 1A + 2A 修订共享 Skills 状态收敛和指纹密钥替换检测；设计、AC-002-02/11/14/18、任务与验证夹具已关联。仅完成文档修订，功能验收未执行。
 
 - 交付功能 002 的规格、技术设计、七项任务和逐 AC 验证计划，关联九项需求与十八项验收。
 - 明确版本状态与最近执行结果分离、来源指纹不代表目标文件一致、退出 0 的跳过不能记成功，以及 global/共享 Skills 路径的覆盖失效。
@@ -177,7 +189,9 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 
 | 日期 | 变更 |
 |---|---|
+| 2026-10-15 | 002 实现轮（`c95bc73`）：共享输出等价判定 + 密钥派生 keyId 在状态 Store/指纹层落地，新增 40 项行为测试、全量 169/169；AC-002-02/06/10/12/14/18 部分通过，其余未执行；TASK-002-01/02/04 进行中 |
 | 2026-10-15 | 修复 intake 相对路径来源死循环：父目录回溯以 `/` 为终点而 `dirname "."` 仍返回 `.`，`--repo . --source .` 会无限挂起且无报错。新增 `intake_abspath`（转绝对路径但保留符号链接），`intake_check_path_scope` 与 `intake_safe_resolve_link` 入口先归一化；后者越界判定补 `root_real` 比对，相对允许根下根内链接不再被误判。`test-intake-scan.sh` 新增 6 个带期限守护的用例（33→39），还原缺陷版本时 6 例全部超时失败；相对与绝对路径扫描结果一致（177 条 occurrence、路径集合相同） |
+| 2026-10-15 | 功能 002 评审整改文档：用户确认 1A + 2A，补充共享输出等价恢复、密钥派生 keyId 及对应验收；任务仍待开始，功能验收未执行 |
 | 2026-10-15 | 功能 002 SDD 文档交付：REQ-002-01～09 / AC-002-01～18 / TASK-002-01～07 已关联；工程细则草案、实现待开始、功能验收未执行；仅做文档检查 |
 | 2026-10-10 | TASK-001-03～06 审查整改（2026-10-10 审查基准 d086528）：逐项闭环 12 条已确认缺陷——新增 `lib/intake/paths.sh`（路径段/相对路径/软链接边界，写入前拒绝）、资产 ID 改由 registry 稳定身份解析、计划记录目标实际内容指纹并在提交前复核、提交状态持久化（`incomplete` + 基线复用 + `skip_backfill`）与四种故障窗口的续跑、回退改为整批可行性判定、Rule/Skill 明文凭据门禁、忽略决定按实际审核来源组生效、Desktop 目标选择经 UI→IPC→CLI 生效且计划自动作废、状态查询支持只给总库、块标量整段脱敏、响应校验先判类型并按锚点各自来源验证、尝试记录跨次接续不覆盖。新增回归套件 `test-intake-review-0306.sh` 163/163（含旧行为失败 → 新行为通过的对照用例），既有 13 个 shell 套件与 Electron 100 个用例全绿 |
 | 2026-10-10 | TASK-001-06 落地：模型 API 边界（配置只存凭据引用、凭据经 curl stdin 传入不进 argv）、请求组装与确认（prepare 预览 + body_hash 校验，范围变化必须重新确认，分批每批独立确认）、凭据与可疑字段脱敏、结构化输出契约校验（来源 ID/锚点逐字匹配/类型/分类/理由/覆盖区间）、超时与 4xx/5xx 重试策略、每次尝试单独留存；未覆盖区间自动补齐并告警（记录在 design §20.6）。测试用本机回环模拟服务，不调用真实模型；shell 套件 11 个全绿 |

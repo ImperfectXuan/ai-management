@@ -35,7 +35,7 @@
 
 ## 2.1 功能 002 · 持久化同步版本状态
 
-扩展 REQ-SYNC / REQ-DESKTOP / NFR-SOURCE / NFR-SECURITY / NFR-FAILURE，基于 `81195b4` 的统一内容库与应用项目分离。功能规格与设计为草案，当前仅交付文档；实现状态仅在 [PROGRESS](PROGRESS.md) 维护，以下 AC 均未执行。
+扩展 REQ-SYNC / REQ-DESKTOP / NFR-SOURCE / NFR-SECURITY / NFR-FAILURE，基于 `81195b4` 的统一内容库与应用项目分离。功能规格与设计为草案（1A+2A 方向已确认）；实现状态仅在 [PROGRESS](PROGRESS.md) 维护，AC 执行结果以 [verification](specs/002-sync-status/verification.md) 为准（其中 AC-002-02、06、10、12、14、18 为存储/指纹层部分通过，其余未执行）。
 
 | 功能需求 | 设计入口 | 任务入口 | 验收入口 |
 |---|---|---|---|
@@ -47,7 +47,9 @@
 | REQ-002-06 | [身份/锁](specs/002-sync-status/design.md#2-分发单元与状态语义)、[执行](specs/002-sync-status/design.md#4-cli-回执与执行顺序) | TASK-002-02、04、05 | AC-002-13、14 |
 | REQ-002-07 | [接口与界面](specs/002-sync-status/design.md#6-主进程接口与界面) | TASK-002-05、06 | AC-002-15、16 |
 | REQ-002-08 | [单项 Skills](specs/002-sync-status/design.md#6-主进程接口与界面) | TASK-002-05、06 | AC-002-17 |
-| REQ-002-09 | [安全指纹](specs/002-sync-status/design.md#3-指纹契约与输入边界)、[本机记录](specs/002-sync-status/design.md#5-本机记录与恢复) | TASK-002-01、02 | AC-002-18 |
+| REQ-002-09 | [安全指纹](specs/002-sync-status/design.md#3-指纹契约与输入边界)、[本机记录](specs/002-sync-status/design.md#5-本机记录与恢复) | TASK-002-01、02、04 | AC-002-18 |
+
+2026-10-15 评审整改：P1 的共享 Skills 状态收敛关联 AC-002-02、11、14 与 TASK-002-02、04；P2 的派生 keyId 与替换检测关联 AC-002-18 与 TASK-002-01、02、04。用户仅确认这两项方案选择，文档修订不表示功能验收通过。
 
 完整定义见 [spec.md](specs/002-sync-status/spec.md)，任务完成条件见 [tasks.md](specs/002-sync-status/tasks.md)。TASK-002-07 执行全部验收及收尾，文档链接检查不等于功能通过。
 
