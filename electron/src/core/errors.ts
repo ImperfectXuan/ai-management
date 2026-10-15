@@ -6,6 +6,11 @@ export const ErrorCodes = {
   GitNotInstalled: 'GitNotInstalled',
   UnsupportedTool: 'UnsupportedTool',
   InvalidArgument: 'InvalidArgument',
+  IntakeFailed: 'IntakeFailed',
+  IntakeCancelled: 'IntakeCancelled',
+  CliFailed: 'CliFailed',
+  SyncCancelled: 'SyncCancelled',
+  SyncFailed: 'SyncFailed',
 } as const;
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
 
