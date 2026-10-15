@@ -12,11 +12,14 @@
 
 ---
 
+> 文档角色：能力盘点与候选需求来源；2026-10-10 整理。功能状态沿用既有记录，本轮未执行功能验收。需求与验收以 [SPEC](SPEC.md) 为准，执行状态统一查 [PROGRESS](PROGRESS.md)。各域 TODO 是候选项，不是已批准或已排期任务。
+
 ## 0. 状态图例
 
-- ✅ **已实现** — 三端中至少一端可跑通且具备测试
-- 🟡 **部分实现** — 有最小可用版本，但有明确未完成项
-- ❌ **未实现** — 文档/Roadmap 提及但当前未交付
+- ✅ **已有实现记录** — 至少一端有实现或历史证据，不能推导为三端验收通过
+- 🟡 **部分实现** — 有已知未完成范围
+- ❓ **待核实** — 缺少足够证据，不能当作已实现
+- ❌ **未实现** — 文档提及但未交付
 
 端覆盖列：`C` = CLI（`aiws`）· `T` = TUI（Ink）· `D` = Desktop（Electron）
 
@@ -24,7 +27,7 @@
 
 ## 1. 业务域：规则（Rules）
 
-**职责**：维护工具无关的 Markdown 规范规则，YAML frontmatter + 主体内容；按 `mapping.yaml` 选择性包含，按 `scope` 字段按需装载。
+**职责**：维护工具无关的 Markdown 规范规则，YAML frontmatter + 主体内容；按 `mapping.yaml` 选择性包含，按 `globs` 与规则领域 `scope` 形成工具装载范围。
 
 **事实来源**：`rules/00-core.md` ~ `07-conversation-style.md`（8 条核心）+ `rules/domains/*.md`（6 条领域：aspnet / vue3 / winforms / wpf / karpathy-behavioral / global-workflow）。
 
@@ -34,8 +37,8 @@
 |---|---|---|
 | 规则解析（YAML frontmatter + body） | ✅ | core 层 `rules.ts`、CLI `rules-generate.sh` |
 | 列表 / 装载开关 | ✅ | TUI rules 屏、Desktop rules 页面；`setRuleRequired` 写入 `mapping.yaml` |
-| mapping 驱动的选择性包含 | ✅ | Phase 1 已完成；`required: true/false` 驱动 |
-| 按 `scope` 字段过滤（all / csharp / vue …） | ✅ | 工具原生文件生成阶段生效 |
+| mapping 驱动生成与装载语义 | ✅ | 来源登记决定生成范围；逐文件工具的 `required` 控制 `alwaysApply` |
+| 规则领域 `scope` 与 glob 装载 | ✅ | `globs` 优先，缺省按领域映射；CLI `--scope` 是 MCP / 技能分发位置，不能混用 |
 | 按 `tools` 字段过滤 | ✅ | 2026-09-07 三端落地（内联/块列表，缺省全工具，与 mapping AND） |
 | 规则编辑视图（多字段表单） | ❌ | TUI/Desktop 延后项 |
 | 规则反向导入（`aiws import rules`） | ✅ | cursor/trae 逐条转换、claude/codex 整文件导入 |
@@ -43,7 +46,7 @@
 
 **边界与契约**：
 - 输入：`rules/*.md`、`rules/domains/*.md`、`adapters/{tool}/mapping.yaml`
-- 输出：各工具根层文件（`CLAUDE.md` / `AGENTS.md` / `.cursorrules` / `.trae/rules.md`）
+- 输出：各工具根层文件（`CLAUDE.md` / `AGENTS.md` / `.cursor/rules/*.mdc` / `.trae/rules/*.md`）
 - 禁止：规范层写工具特定规则；手动编辑生成文件
 
 **TODO**
@@ -55,7 +58,7 @@
 
 **职责**：跨工具技能定义（`SKILL.md` + 资源文件）；通过 symlink / junction / 复制 三种模式分发到各工具。
 
-**事实来源**：`.ai-workspace/skills/<name>/`，当前 25 个技能。
+**事实来源**：`.ai-workspace/skills/<name>/`，数量以当前规范源目录为准，避免把本地安装变化写死为产品规格。
 
 **端覆盖**：C ✅ · T ✅ · D ✅
 
@@ -66,7 +69,7 @@
 | 跨平台 symlink（macOS/Linux symlink、Windows junction、复制回退） | ✅ | `skills-link.sh` |
 | 从 GitHub / npm / 本地路径安装 | ✅ | `aiws skills install <source>` |
 | 按 scope 解除链接 | ✅ | `skills unlink`、Desktop 解链 |
-| 逐工具逐 scope 细粒度链接 / 卸载 | 🟡 | Roadmap P2 延后项；首版仅 global 快捷 |
+| 逐工具逐 scope 链接 / 卸载 | ✅ | 2026-08-28：TUI scope 切换、Desktop 工具 Tab + global/project 操作已交付，见 PROGRESS §4 |
 | 技能编辑器（写 SKILL.md / frontmatter） | ❌ | 未规划 |
 | 技能市场 / 远程仓库浏览 | ❌ | Phase 3 P3 |
 
@@ -76,7 +79,7 @@
 - 已管理的 symlink / 同名技能导入时跳过
 
 **TODO**
-- [ ] 实现逐工具 × 逐 scope 细粒度链接面板（TUI + Desktop）
+- 工具 / scope 选择已交付；更细粒度的交互需求需另建规格，不重复列为未实现。
 - [ ] 技能 frontmatter 校验（name 唯一、description 必填）
 - [ ] 安装源支持 `git+https` / 私有仓库鉴权
 - [ ] 技能市场骨架（Phase 3 预留）
@@ -160,7 +163,7 @@
 | `aiws memory` 子命令（list / new / show） | ✅ | `memory.sh`；ADR 编号自增、decisions 追加、标题 `&`/`\` 逐字保留（`3b8a9d5` `bba2293`） |
 | context 注入 sync（claude/codex 头部 + cursor/trae 00-context） | ✅ | CLI sync 贯通；00-context 纳入漂移白名单（`319244e`） |
 | validate 记忆域校验（模板 / frontmatter / ADR status / decisions 格式） | ✅ | `validate_memory`（`6e9cd46`） |
-| Desktop core 规则生成接入 context 注入 | 🟡 | electron `sync.ts` 仅 cursor/trae 逐条生成，未注入 |
+| Desktop core 规则生成接入 context 注入 | ✅ | 2026-10-15：`syncRun` 桥接共享 CLI；四工具 context 与两轮演示旅程集成验证 |
 | TUI / Desktop 记忆页 | ❌ | 未规划 |
 
 **边界与契约**：
@@ -170,7 +173,8 @@
 
 **TODO**
 - [ ] 记忆域代码评审
-- [ ] Desktop core 接入 context 注入 + 记忆页（时间线 + 标签筛选）
+- [x] Desktop 批量同步接入 context 注入（2026-10-15）
+- [ ] 记忆页（时间线 + 标签筛选）
 
 ---
 
@@ -187,7 +191,7 @@
 | `default_scope` 控制 | ✅ | sync 默认分发粒度 |
 | `mcp.enabled` / `skills.enabled` / `secrets.enabled` 模块开关 | ✅ | sync 阶段校验 |
 | TUI 编辑 workspace.json | ❌ | 未规划 |
-| Desktop 设置页可改 | 🟡 | Desktop `settings.tsx` 存在，但具体读写范围需确认 |
+| Desktop 设置页可改 | ❓ | Desktop `settings.tsx` 存在，但具体读写范围需确认 |
 | 配置迁移（版本升级） | ❌ | `version: "1.0"` 字段已留，但无迁移器 |
 
 **边界与契约**：
@@ -206,17 +210,17 @@
 
 **职责**：把规范层正向同步到各工具原生文件，分三阶段 —— 规则生成 → MCP 同步 → 技能链接。
 
-**端覆盖**：C ✅ · T 🟡 · D ✅
+**端覆盖**：C ✅ 完整流程 · T ✅ 调用 CLI · D 🟡 部分阶段
 
 | 能力 | 状态 | 备注 |
 |---|---|---|
 | 规则生成（按 mapping.yaml） | ✅ | `rules-generate.sh` |
 | MCP 同步（scope 过滤 + 占位符替换） | ✅ | `mcp-sync.sh` |
-| 技能链接（symlink / junction / 复制） | ✅ | `skills-link.sh` |
+| 技能链接（symlink / junction / 复制） | ✅ | CLI 与 Desktop 全量 sync 均包含技能；Desktop 仍保留独立链接操作 |
 | 单工具同步（`--tool T`） | ✅ | CLI + Desktop |
 | 单 scope 同步（`--scope S`） | ✅ | CLI |
 | 批量同步 + 进度 + 取消 | ✅ | Desktop `syncRun` + AbortController + 系统通知 |
-| TUI 一键同步 | 🟡 | Dashboard 屏是否有此能力需复核 |
+| TUI 一键同步 | ✅ | Dashboard `s` 调用 CLI sync，结束后显示日志；不支持 Desktop 式取消与逐行进度 |
 | 并行同步（多工具并发） | 🟡 | 当前为串行；可优化 |
 | 同步前快照 / 回滚 | ❌ | 未规划 |
 
@@ -262,8 +266,8 @@
 | 配置一致性（adapter 与 tools 列表） | ✅ | |
 | YAML frontmatter 校验 | ✅ | |
 | `validate --json` 结构化输出 | 🟡 | Roadmap P1 延后；TUI 仪表盘需要时实现 |
-| TUI 仪表盘展示校验结果 | 🟡 | 当前是否展示需复核 |
-| Desktop 仪表盘展示校验结果 | 🟡 | 同上 |
+| TUI 仪表盘展示校验日志 | ✅ | Dashboard `v` 调用 CLI validate 并显示尾部文本；结构化展示未实现 |
+| Desktop 仪表盘展示校验结果 | ❓ | 当前展示范围待核实 |
 | 规则 / 技能死链检测（引用了不存在的 glob / skill） | ❌ | 未规划 |
 
 **TODO**
@@ -303,7 +307,7 @@
 | 仓库列表 / 新增 / 删除 | ✅ | `WorkspaceStore`（`core/workspace.ts`） |
 | userData 持久化（`repos.json`） | ✅ | Electron `app.getPath('userData')` |
 | 当前仓库切换 | ✅ | Desktop 顶部下拉 |
-| 仓库健康检查（仍是 git 仓库 / 仍是有效 .ai-workspace） | 🟡 | 待确认 |
+| 仓库健康检查（仍是 git 仓库 / 仍是有效 .ai-workspace） | ❓ | 待确认 |
 | CLI 端仓库列表 | ❌ | 当前 CLI 仅在单仓库 git root 跑 |
 | TUI 多仓库视图 | ❌ | 未规划 |
 
@@ -326,7 +330,7 @@
 | Desktop diff 页面 | ✅ | `diff.tsx` |
 | TUI diff 视图 | ❌ | 未规划 |
 | 多工具对比（一规则 vs 4 工具输出） | ❌ | 未规划 |
-| 一键应用建议（"重新 sync 以修复"） | 🟡 | 需确认是否存在 |
+| 一键应用建议（"重新 sync 以修复"） | ❓ | 需确认是否存在 |
 
 **TODO**
 - [ ] 多工具 diff 矩阵（1 规则 × N 工具）
@@ -344,10 +348,10 @@
 | 能力 | 状态 | 备注 |
 |---|---|---|
 | 跨域计数 | ✅ | TUI + Desktop |
-| 一键同步（可取消 + 进度） | ✅ | Desktop 端完整；TUI 待确认 |
-| 同步状态灯（黄/绿） | ✅ | 用户偏好（user_profile.md 提到） |
-| 配置行默认展开 | ✅ | 用户偏好（user_profile.md 提到） |
-| 校验结果嵌入 | 🟡 | 待确认 |
+| 一键同步 | ✅ | Desktop 有进度与取消；TUI 调用 CLI 并在结束后展示日志 |
+| 同步状态灯（黄/绿） | ❓ | 用户偏好不等于实现证据，待界面核实 |
+| 配置行默认展开 | ❓ | 用户偏好不等于实现证据，待界面核实 |
+| 校验结果嵌入 | ❓ | 待确认 |
 
 **TODO**
 - [ ] 校验结果内嵌
@@ -366,7 +370,7 @@
 | `WorkspaceError` 基类 | ✅ | |
 | 错误码（`code`） | ✅ | IPC 返回 `{ ok, code, message }` |
 | 错误消息（含上下文） | ✅ | |
-| TUI / CLI 错误展示 | 🟡 | CLI exit code + log；TUI 屏内展示待确认 |
+| TUI / CLI 错误展示 | ❓ | CLI exit code + log；TUI 屏内展示待确认 |
 | 错误聚合（多步骤同步时收集所有错误再上报） | ❌ | 未规划 |
 
 **TODO**
@@ -380,11 +384,11 @@
 
 | 项 | 状态 | 备注 |
 |---|---|---|
-| CLI（`aiws` POSIX sh） | ✅ | 唯一业务逻辑引擎 |
+| CLI（`aiws` POSIX sh） | ✅ | 完整命令行引擎；Desktop 另有 TS 实现，TUI 规则管理含本地读写 |
 | TUI（Ink + React） | ✅ | 6 页（dashboard / effective / mcp / rules / secrets / skills） |
 | Desktop（Electron + React + TS） | ✅ | 8 页（dashboard / diff / mcp / rules / secrets / settings / skills / workspaces） |
 | 核心层 TS 重写（`electron/src/core/`） | ✅ | 11 模块 + 12 测试文件 |
-| TUI 单元测试（`tui/test/`） | ✅ | 3 文件 |
+| TUI 测试（`tui/test/`） | ✅ | 用例与文件数以测试目录和当次执行结果为准 |
 | CI/CD（推送自动 sync） | ✅ | Phase 2；`aiws ci install` 安装 GitHub Actions 工作流 |
 | 跨项目模板提取 | ❌ | Phase 2 P2 |
 | 单命令项目初始化脚手架 | ❌ | Phase 2 P3 |
@@ -394,37 +398,14 @@
 
 ---
 
-## 16. 跨域 TODO 汇总（按优先级）
+## 16. 候选项与任务排期
 
-### P0 — 核心完善
-- [ ] `mcp.enabled` / `skills.enabled` / `secrets.enabled` 关闭时 sync 的明确提示
-- [ ] 错误聚合（sync 多步骤场景）
+各域 TODO 保留为候选需求来源。原跨域汇总与 ROADMAP / PROGRESS 存在重复及过期项（例如已交付的技能 tool / scope 选择），不再维护第二份优先级清单。
 
-### P1 — 重要但未达 MVP 后
-- [x] ~~ADR / context / decisions 模板落地（记忆域）~~ ✅ 2026-09-03（含 `aiws memory` CLI、sync 注入、validate）
-- [ ] `validate --json` 结构化输出
-- [ ] MCP schema 扩展（env / headers / timeout / transport）
-- [ ] Desktop / TUI 校验结果嵌入仪表盘
-- [ ] 死链检测（rules / skills）
-
-### P2 — 有价值、带宽允许时
-- [x] ~~规则 `tools` 字段过滤~~ ✅ 2026-09-07
-- [ ] TUI / Desktop 逐工具 × 逐 scope 技能链接
-- [ ] Desktop / TUI 密钥写入界面
-- [ ] TUI 编辑规则（多字段表单）
-- [ ] TUI MCP 完整表单
-- [ ] 并行同步
-- [ ] 同步前快照 / 回滚
-- [ ] 同步报告
-- [ ] 配置迁移器
-- [ ] 适配器一致性 CI
-
-### P3 — 锦上添花
-- [ ] 密钥轮换 / 团队共享
-- [ ] 技能市场 / 远程仓库
-- [ ] 跨项目模板提取
-- [ ] 单命令项目脚手架
-- [ ] 精选规则集 / 社区模板
+- 阶段方向与候选优先级：[ROADMAP](../ROADMAP.md)。
+- 真实待办、状态与完成证据：[PROGRESS §6](PROGRESS.md#6-待办优先级)。
+- 需求 → 设计 → 任务 → 验收关系：[TRACEABILITY](TRACEABILITY.md)。
+- 新候选开始实施前使用 [功能模板](specs/TEMPLATE.md)，明确范围与验收。
 
 ---
 
@@ -438,13 +419,13 @@
 | 密钥 | ✅ 读写 | ✅ 只读 | ✅ 只读 |
 | 记忆 | ✅ | ❌ | ❌ |
 | 配置 | ✅ | ❌ | 🟡 |
-| 同步引擎 | ✅ | 🟡 | ✅ |
+| 同步引擎 | ✅ 完整流程 | ✅ 调用 CLI | 🟡 部分阶段 |
 | 反向导入 | ✅ mcp/skills/rules | ❌ | ❌ |
-| 校验 | ✅ | 🟡 | 🟡 |
+| 校验 | ✅ | ✅ 文本日志 | ❓ |
 | 适配器 | ✅ | 间接 | ✅ |
 | 工作区 | ❌ | ❌ | ✅ |
 | 差异对比 | ❌ | ❌ | ✅ |
 | 仪表盘 | ❌ | ✅ | ✅ |
 | 错误模型 | 🟡 | 🟡 | ✅ |
 
-> 矩阵中的"🟡"项需逐项确认实际行为，必要时回填到本表。
+> 🟡 表示已知部分覆盖，❓ 表示证据待核实；矩阵不替代当次验收。

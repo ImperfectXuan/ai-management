@@ -47,12 +47,12 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 
 | 任务 ID | 交付 | 实施状态 | 完成证据 |
 |---|---|---|---|
-| TASK-001-01 | 技术设计与契约 | ✅ 已完成（2026-10-10） | [design.md](specs/001-asset-intake/design.md)；文档链接/AC 覆盖检查通过；审查修复（§3.4/§9.3/§16.4 契约修正）已落地 |
-| TASK-001-02 | 多来源只读扫描 | ✅ 已完成（2026-10-10） | `lib/intake/` 扫描引擎 + `aiws intake scan`；审查修复 40/40 + 原有 33/33 + 兼容 234 用例通过；Desktop 未验证 |
-| TASK-001-03 | 去重与增量判断 | ✅ 已完成（2026-10-10） | `lib/intake/compare.sh` 比较引擎 + `aiws intake compare`；test-intake-compare.sh 47/47；AC-001-04～07 引擎/CLI 部分通过（见 [verification](specs/001-asset-intake/verification.md) §3.1）；Desktop 未验证 |
-| TASK-001-04 | 审核计划、入库与恢复 | ✅ 已完成（2026-10-10） | `lib/intake/{plan,stage,apply,recover}.sh` + `aiws intake plan/apply/rollback/status`；test-intake-apply.sh 60/60；AC-001-08、12、13、14、19 引擎/CLI 部分通过，AC-001-20 未判通过（见 [verification](specs/001-asset-intake/verification.md) §3.1）；Desktop 未验证 |
-| TASK-001-05 | Desktop 人工收编 | ✅ 已完成（2026-10-10） | `shared/intake-types.ts`、`core/intake-bridge.ts`、`main/intake-ipc.ts`、`renderer/pages/intake.tsx`（「收编」tab）；Desktop 测试 93/93；AC-001-01、02、08 通过，AC-001-12、13、14、19 部分通过（见 [verification](specs/001-asset-intake/verification.md) §3.1）；未做 GUI 手工走查与打包验收 |
-| TASK-001-06 | 模型服务与建议契约 | ✅ 已完成（2026-10-10） | `lib/intake/{model,model-io}.sh` + `aiws intake model config/prepare/send/show`；test-intake-model.sh 54/54（本机模拟服务）；AC-001-09、10、11 服务边界通过（见 [verification](specs/001-asset-intake/verification.md) §3.1）；Desktop 界面属 TASK-001-07 |
+| TASK-001-01 | 技术设计与契约 | ✅ 已完成（2026-10-10） | [design.md](specs/001-asset-intake/design.md)；两轮审查整改已落地（§21/§22）；文档链接/AC 覆盖检查通过 |
+| TASK-001-02 | 多来源只读扫描 | ✅ 已完成（2026-10-10） | `lib/intake/` 扫描引擎 + `aiws intake scan`；两轮审查修复 57/57 + 原有 33/33 + 兼容 194 + 既有 79 全部通过；Desktop 未验证 |
+| TASK-001-03 | 去重与增量判断 | ✅ 已完成（2026-10-10，审查整改同日） | `lib/intake/compare.sh` 比较引擎 + `aiws intake compare`；test-intake-compare.sh 47/47；审查整改：资产 ID 从 registry 解析、忽略/暂缓按实际审核来源组生效（见 design §23.2/§23.7）；AC-001-04～07 引擎/CLI 部分通过（见 [verification](specs/001-asset-intake/verification.md) §3.1、§3.2）；Desktop 未验证 |
+| TASK-001-04 | 审核计划、入库与恢复 | ✅ 已完成（2026-10-10，审查整改同日） | `lib/intake/{plan,stage,commit,apply,recover}.sh` + `lib/intake/paths.sh` + `aiws intake plan/apply/rollback/status`；test-intake-apply.sh 60/60；审查整改：写入路径边界、目标实际内容复核、提交状态持久化与续跑、回退整批一致性、Rule/Skill 凭据门禁（见 design §23.1/§23.3～§23.6）；AC-001-08、12、13、14、19 引擎/CLI 部分通过，AC-001-20 未判通过（见 [verification](specs/001-asset-intake/verification.md) §3.1、§3.2）；Desktop 未验证 |
+| TASK-001-05 | Desktop 人工收编 | ✅ 已完成（2026-10-10，审查整改同日） | `shared/{intake-types,intake-selection}.ts`、`core/intake-bridge.ts`、`main/{intake-ipc,intake-args}.ts`、`renderer/pages/intake.tsx`（「收编」tab）；Desktop 测试 100/100；审查整改：六动作目标选择经 UI→IPC→CLI 生效、动作/目标/总库变化即作废旧计划、历史查询支持只给总库且失败显式报错（见 design §23.8/§23.9）；AC-001-01、02、08 通过，AC-001-12、13、14、19 部分通过（见 [verification](specs/001-asset-intake/verification.md) §3.1、§3.2）；未做 GUI 手工走查与打包验收 |
+| TASK-001-06 | 模型服务与建议契约 | ✅ 已完成（2026-10-10，审查整改同日） | `lib/intake/{model,model-io}.sh` + `aiws intake model config/prepare/send/show`；test-intake-model.sh 54/54（本机模拟服务）；审查整改：块标量整段脱敏、校验先判类型再索引、锚点/未覆盖区间逐来源校验、尝试记录跨次接续（见 design §23.10）；AC-001-09、10、11 服务边界部分通过（见 [verification](specs/001-asset-intake/verification.md) §3.1、§3.2）；Desktop 界面属 TASK-001-07 |
 | TASK-001-07 | Desktop AI 整理审核 | 待开始 | 无 |
 | TASK-001-08 | 复制与更新引擎 | 待开始 | 无 |
 | TASK-001-09 | Desktop 复用与更新 | 待开始 | 无 |
@@ -93,6 +93,15 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 
 ## 5. 近期完成记录
 
+### 2026-10-15 · 本机演示收口
+
+- 修复密钥 IPC 未定义解析函数与 JSON 模式缺失、错误被伪装为空状态；补齐类型声明、重复导入与模块兼容问题，`build` 强制先执行 `typecheck`。
+- Desktop 同步复用 CLI，覆盖四工具规则、context、MCP 和 Skills，默认仅 project；取消终止进程组，失败/取消不更新成功时间戳。规则页与差异页只同步规则。
+- 修复规则开关刷新后待同步状态丢失、规则版本 CHANGELOG 被误列为规则、正常格式转换被误报为漂移、长路径及滚动布局、回退完成状态不可见。计划新增 `write_path`，与暂存共用路径计算。
+- 新增隔离演示启动、两轮真实引擎旅程与源码快照/哈希清单；见 [本机演示指南](guides/local-demo.zh-CN.md)。基准 `d086528` + 当前未提交工作区；Desktop 116/116、TUI 19/19、类型检查、构建、CLI validate、Shell apply 60/60、审查回归 163/163 通过。原生 GUI 完成同步/密钥/差异与人工收编回退走查；最后补丁的验证边界见演示指南。
+- 按用户确认，TASK-001-07～10 未纳入本轮，不改变这些任务的完成状态。未执行 Git 提交或推送。
+
+
 | 完成时间 | 内容 | commit |
 |---|---|---|
 | 2026-09-07 | 规则 `tools` 字段过滤三端落地：common.sh `rule_tools`/`rule_applies_to_tool`、cursor/trae 逐条 + claude/codex 单文件统一过滤、Electron core `parseTools`/`ruleAppliesToTool`、validate 校验非法 tool 值；新增 test-rules-tools.sh（5 用例）+ electron 4 用例，全 shell 88 绿 + electron 65 + TUI 19 | `eae4b6f` `93edfbe` `c2ef7e5` |
@@ -123,7 +132,7 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 - [x] ~~按 tools 字段过滤规则~~ ✅ 2026-09-07 完成
 - [ ] Phase 1.5 TUI 延后项：界面内编辑规则、validate --json 结构化输出、secrets 写操作、MCP 完整表单（REQ-TUI / REQ-VALIDATE / REQ-SECRETS / REQ-MCP；需补功能规格）
 - 技能工具 / scope 选择已完成（§4 B1/B2）；进一步交互增强属于候选，尚未排期。
-- Desktop 同步对齐与记忆页属于候选，尚未排期，边界见架构与能力盘点。
+- Desktop 四工具同步对齐已于 2026-10-15 通过共享 CLI 落地（含 context 与 Skills，默认 project scope）；记忆页仍未排期。
 - ~~CI/CD 推送时自动同步~~ ✅ 2026-08-28 完成（`aiws ci install`）
 
 ### P3 · 锦上添花
@@ -147,6 +156,7 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 
 | 日期 | 变更 |
 |---|---|
+| 2026-10-10 | TASK-001-03～06 审查整改（2026-10-10 审查基准 d086528）：逐项闭环 12 条已确认缺陷——新增 `lib/intake/paths.sh`（路径段/相对路径/软链接边界，写入前拒绝）、资产 ID 改由 registry 稳定身份解析、计划记录目标实际内容指纹并在提交前复核、提交状态持久化（`incomplete` + 基线复用 + `skip_backfill`）与四种故障窗口的续跑、回退改为整批可行性判定、Rule/Skill 明文凭据门禁、忽略决定按实际审核来源组生效、Desktop 目标选择经 UI→IPC→CLI 生效且计划自动作废、状态查询支持只给总库、块标量整段脱敏、响应校验先判类型并按锚点各自来源验证、尝试记录跨次接续不覆盖。新增回归套件 `test-intake-review-0306.sh` 163/163（含旧行为失败 → 新行为通过的对照用例），既有 13 个 shell 套件与 Electron 100 个用例全绿 |
 | 2026-10-10 | TASK-001-06 落地：模型 API 边界（配置只存凭据引用、凭据经 curl stdin 传入不进 argv）、请求组装与确认（prepare 预览 + body_hash 校验，范围变化必须重新确认，分批每批独立确认）、凭据与可疑字段脱敏、结构化输出契约校验（来源 ID/锚点逐字匹配/类型/分类/理由/覆盖区间）、超时与 4xx/5xx 重试策略、每次尝试单独留存；未覆盖区间自动补齐并告警（记录在 design §20.6）。测试用本机回环模拟服务，不调用真实模型；shell 套件 11 个全绿 |
 | 2026-10-10 | TASK-001-05 落地：Desktop 通过类型化 IPC 接入共享收编引擎，新增「收编」向导（总库/来源选择、扫描进度与取消、候选分类与来源详情、差异、六种动作、受约束批量确认、计划预览、入库结果与记录、回退、失败续跑）；总库与来源校验相互独立，来源不要求初始化或 git；AI 入口保持可解释未配置状态。Desktop 测试 65→93，既有 shell 套件回归全绿；AC-001-01、02、08 通过，12、13、14、19 部分通过 |
 | 2026-10-10 | TASK-001-04 落地：六动作审核计划与执行引擎（`plan/stage/apply/recover.sh`）、稳定资产 ID 与 registry、初始版本纳管与历史版本、来源关系与规则 mapping 登记、执行前复核、批次幂等、执行锁与并发检测、预备写入与暂存、分阶段记录与 `--resume`、受约束回退；CLI 新增 `intake plan/apply/rollback/status`。顺带修复 `register_mapping_entry` 中 `grep -qF "- source: …"` 缺少 `--` 导致 mapping 幂等判定失效（会重复追加）。AC-001-08、12、13、14、19 引擎/CLI 部分通过，Desktop 未验证；测试 60/60，既有 shell 套件回归全绿 |

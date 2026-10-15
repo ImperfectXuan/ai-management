@@ -1,88 +1,48 @@
 # 路线图
 
-## Phase 0：基础设施 — ✅ 已完成
+> 文档角色：阶段方向与候选优先级。执行状态与完成证据统一查 [PROGRESS](docs/PROGRESS.md)，需求边界查 [SPEC](docs/SPEC.md)。
+> 2026-10-10 整理；下列候选项沿用既有规划，不代表已排期或新增交付承诺。开始实施前按 [SDD](docs/SDD.md) 补齐功能规格。
 
-| 任务 | 状态 |
-|---|---|
-| 仓库结构和目录树 | ✅ 完成 |
-| 规范规则框架（`rules/`） | ✅ 完成 |
-| Codex 适配器 | ✅ 完成 |
-| Claude Code 适配器 | ✅ 完成 |
-| Cursor 适配器 | ✅ 完成 |
-| Trae 适配器 | ✅ 完成 |
-| 文档套件 | ✅ 完成 |
-| sync 脚本（`aiws sync`） | ✅ 完成 |
-| validate 脚本（`aiws validate`） | ✅ 完成 |
-| aiws CLI 入口 | ✅ 完成 |
-| MCP 同步引擎（JSON + TOML） | ✅ 完成 |
-| Skills 同步引擎（symlink） | ✅ 完成 |
-| 加密密钥保管库（age + TOTP 2FA） | ✅ 完成 |
-| 双向同步（`aiws import`） | ✅ 完成 |
+## 1. 阶段与目标
 
-## Phase 1：增强 — ✅ 已完成
-
-| 任务 | 优先级 |
-|---|---|
-| ADR 模板和记忆系统 | P1 · ✅ 已完成（2026-09-03：模板 + `aiws memory` CLI + validate 校验） |
-| 项目上下文摘要 | P1 · ✅ 已完成（2026-09-03：sync 注入 `memory/context` 到各工具） |
-| Git pre-commit hook 集成 | P1 · ✅ 已完成 |
-| mapping.yaml 驱动的规则选择性包含 | P1 · ✅ 已完成 |
-| 规则反向导入（`aiws import rules`） | P2 · ✅ 已完成 |
-| 按 tools 字段过滤规则 | P2 · ✅ 已完成（2026-09-07：CLI + Electron + validate 三端） |
-
-## Phase 1.5：可视化 TUI — ✅ 已完成
-
-首版 TUI（Ink + React）已交付：`aiws --json` 输出，以及 Dashboard / Rules / MCP / Skills / Secrets / 生效规则 六页全部实现。下方「延后」项为明确留待后续的增强。
-
-| 任务 | 优先级 | 状态 |
+| 阶段 | 目标 | 记录入口 |
 |---|---|---|
-| aiws `--json` 输出：`mcp list` / `skills list` / `secrets list` / `secrets audit` | P0 | ✅ 已完成 |
-| Ink TUI：Dashboard / Rules / MCP / Skills / Secrets / 生效规则 | P0 | ✅ 已完成 |
-| 界面内编辑规则 + 保存自动 sync | P0 | ⏸ 延后（首版规则页仅列表 + 装载开关） |
-| validate `--json` 结构化输出 | P1 | ⏸ 延后（TUI 需要仪表盘校验结果时再实现） |
-| TUI 部署为全局工具（跨项目管理） | P2 | ⏸ 延后（首版仅项目内命令） |
-| secrets 写入操作（增删改） | P2 | ⏸ 延后（首版仅只读展示 + 审计） |
-| 规则编辑视图（Enter 多字段表单：title/desc/globs） | P2 | ⏸ 延后 |
-| MCP 添加完整表单（Tab 切换字段） | P2 | ⏸ 延后（首版为逐字符输入简化版） |
-| 技能逐工具逐 scope 细粒度链接/卸载 | P2 | ⏸ 延后（首版仅 global scope 快捷操作） |
+| Phase 0 | 规范源、四工具适配、CLI、同步 / 校验 / 导入、MCP / 技能 / 密钥 | [PROGRESS §2](docs/PROGRESS.md#2-里程碑总览) |
+| Phase 1 | mapping、tools 过滤、记忆模板与 context 注入、pre-commit | [PROGRESS §5](docs/PROGRESS.md#5-近期完成记录) |
+| Phase 1.5 | 六页 TUI 与结构化 CLI 列表输出 | [TUI 设计](docs/superpowers/specs/2026-08-04-tui-design.md)；状态查 PROGRESS |
+| Phase 1.6 | macOS Desktop、多仓库、管理界面、托盘与打包 | [Desktop 设计](docs/superpowers/specs/2026-08-07-desktop-app-design.md)；状态查 PROGRESS |
+| Phase 2 | CI 自动同步、规则版本化，进一步探索跨项目模板与脚手架 | [PROGRESS §2](docs/PROGRESS.md#2-里程碑总览)；两项核心有交付记录，其余仍是候选 |
+| Phase 3 | 精选规则集、社区模板与规则集市场 | 需先形成独立需求与设计 |
 
-## Phase 1.6：Desktop 独立 macOS 应用 — ✅ 已完成
+## 2. 近期质量工作
 
-Electron + React + TypeScript 实现的独立管理应用（`electron/`），core 层为纯 TS 重写、可脱离 GUI 直测。
+| 优先级 | 事项 | 关联需求 / 证据入口 |
+|---|---|---|
+| P0 | Windows 真机 junction / copy 验证收尾 | NFR-COMPAT；[PROGRESS §4](docs/PROGRESS.md#4-skills-域修复收尾与遗留验证) |
+| P1 | MCP、vault 与记忆域质量评审 | REQ-MCP / REQ-SECRETS / REQ-MEMORY；[PROGRESS §3](docs/PROGRESS.md#3-业务域质量状态) |
 
-| 任务 | 状态 |
-|---|---|
-| 多仓库管理器（userData 持久化） | ✅ 已完成 |
-| core 层 TS 重写（规则 / MCP / 技能 / 同步 / diff / 仓库 / 配置 / 错误模型） | ✅ 已完成 |
-| IPC 接线 + 错误序列化 + vault 只读桥接 | ✅ 已完成 |
-| 批量同步（可取消 + 进度 + 系统通知） | ✅ 已完成 |
-| 托盘（显示窗口 / 快速同步全部 / 退出） | ✅ 已完成 |
-| renderer 各页（仓库 / 仪表盘 / 规则 / MCP / 技能 / 密钥 / 差异对比 / 设置） | ✅ 已完成 |
-| 差异对比（规范规则 vs 生成文件 side-by-side diff） | ✅ 已完成 |
-| dmg 打包（arm64，签名默认关） | ✅ 已完成 |
+## 3. 首版之后的候选增强
 
-## Phase 2：自动化与生态
+| 优先级 | 候选项 | 范围与约束 |
+|---|---|---|
+| P0（原 TUI 规划） | 界面内编辑规则并保存后同步 | 首版交付未包含；需明确与多字段规则编辑器的关系再排期 |
+| P1（原 TUI 规划） | validate 结构化 JSON 输出 | 配合仪表盘校验展示；尚需功能规格 |
+| P2 | TUI 跨项目 / 全局部署 | 当前 TUI 围绕项目仓库运行 |
+| P2 | TUI / Desktop 密钥写操作 | 当前 GUI 只读；需独立安全与失败场景设计 |
+| P2 | 规则多字段编辑表单、MCP 完整添加表单 | 定义字段、校验、保存与同步行为 |
+| P2 | 技能链接交互进一步完善 | 工具 / scope 选择已有实现；新增需求必须超出现有能力，不能重复开发 |
+| P2 | Desktop 与 CLI 同步语义对齐 | 明确单文件规则、context、密钥替换与技能批量同步边界，尚未排期 |
+| P2 | 跨项目模板提取 | Phase 2 原规划项 |
+| P3 | 单命令项目初始化脚手架 | 区分既有 setup 与可复用模板安装 |
+| P3 | 精选规则集、社区贡献模板、规则集市场 | Phase 3 生态方向 |
 
-| 任务 | 优先级 |
-|---|---|
-| CI/CD：推送时自动同步 | P2 · ✅ 已完成 |
-| 规则版本化和变更追踪 | P2 · ✅ 已完成 |
-| 跨项目模板提取 | P2 |
-| 脚手架脚本：单命令项目初始化 | P3 |
+能力盘点中的其他 TODO 是探索来源，包括 MCP 高级字段、配置迁移、同步报告与回滚等；不自动转化为本路线图中的承诺。实际安排统一进入 [PROGRESS §6](docs/PROGRESS.md#6-待办优先级)。
 
-## Phase 3：生态
-
-| 任务 | 优先级 |
-|---|---|
-| 精选规则集（语言 / 领域包） | P3 |
-| 社区贡献模板 | P3 |
-| 规则集市场 | P3 |
-
-## 图例
+## 4. 优先级含义
 
 | 优先级 | 含义 |
 |---|---|
-| P0 | 核心。MVP 必须完成。 |
-| P1 | 重要。MVP 后尽快发布。 |
-| P2 | 有价值。带宽允许时发布。 |
-| P3 | 锦上添花。欢迎社区贡献。 |
+| P0 | 核心或当前质量阻塞；原阶段 P0 不等于已进入当前冲刺 |
+| P1 | 重要，优先于一般增强 |
+| P2 | 有价值，按带宽与需求证据安排 |
+| P3 | 长期方向或社区贡献候选 |

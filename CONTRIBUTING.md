@@ -18,7 +18,7 @@
 
 ## 开发环境
 
-无需构建步骤。AI Workspace 是基于文件的基础设施层。
+CLI 是基于文件的基础设施层，无需编译；依赖与安装见 [README](README.md)。TUI 与 Desktop 的构建 / 测试分别见 [TUI README](tui/README.md) 和 [Desktop README](electron/README.md)。
 
 ```bash
 git clone <repo-url>
@@ -37,7 +37,7 @@ cd ai-workspace
 1. 创建目录：`.ai-workspace/adapters/<工具名>/`
 2. 创建适配器模板：`.ai-workspace/adapters/<工具名>/<工具名>.md`（可选）
 3. 创建映射文件：`.ai-workspace/adapters/<工具名>/mapping.yaml`
-4. 如需生成原生文件，在 `aiws` 的 `generate_tool_file()` 中添加 `case` 分支
+4. 如需生成原生文件，在 CLI 规则生成路径中增加工具分支（`aiws` 单文件生成或 `lib/rules-generate.sh` 逐文件生成）；Desktop 支持范围需另行评估
 5. 在 `common.sh` 的 `get_tool_mcp_path()` 和 `get_tool_skills_path()` 中添加路径映射
 6. 更新 `workspace.json` 的 `tools` 列表
 7. 更新 `README.md` 支持的工具表
@@ -103,13 +103,19 @@ scope: all
 - 支持 `--dry-run` 模式用于非破坏性预览
 - Shell 脚本不依赖 GNU 扩展——测试 macOS 兼容性
 
+## SDD 文档流程
+
+功能变更先按 [SDD 约定](docs/SDD.md) 明确需求与验收，再完成设计和任务分解。使用 [功能模板](docs/specs/TEMPLATE.md)，把需求 ID、设计、任务与验证关联到 [追踪矩阵](docs/TRACEABILITY.md)。实施状态在 [PROGRESS](docs/PROGRESS.md) 更新。
+
+既有 `docs/superpowers/` 是阶段资料，不直接执行历史计划。简单修正可以在现有规格中记录范围与验收，不强制拆分多个文件。
+
 ## Pull Request 流程
 
 1. Fork 并分支。
-2. 遵循上述指南进行修改。
-3. 运行 `aiws sync` 和 `aiws validate`。
-4. 更新 `CHANGELOG.md` 的 `[Unreleased]` 部分。
-5. 提交清晰的 PR 描述。
+2. 明确关联需求、验收与任务；遵循上述指南修改。
+3. 运行与变更相关的检查并记录实际结果。规范源或生成逻辑变更需在临时仓库验证 `aiws sync` / `aiws validate`；仅文档改动检查链接、需求引用、状态一致性与 Diff，不运行重写生成文件的同步。
+4. 更新受影响的规格、使用说明、追踪关系与进度；显著变化记录到 `CHANGELOG.md` 的 `[Unreleased]`。
+5. PR 描述说明改了什么、为什么、如何验证，并区分已执行检查和未执行验收。
 
 维护者将在一周内审查。
 

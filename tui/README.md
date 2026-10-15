@@ -1,6 +1,8 @@
 # AI Workspace TUI
 
-终端可视化管理界面，薄壳调用 `aiws` CLI。
+终端可视化管理界面，主要通过 `aiws` CLI 执行业务操作；规则与生效规则视图也直接读取本地文件，装载设置直接写 mapping。
+
+需求见 [REQ-TUI](../docs/SPEC.md#req-tui终端交互)，设计与验收关联见 [追踪矩阵](../docs/TRACEABILITY.md)。
 
 ## 使用
 
@@ -17,7 +19,7 @@ npm run tui
 | `1-6` | 切换页面 |
 | `q` | 退出 |
 | `r` | 刷新当前页 |
-| `?` | 帮助 |
+| `?` | 底栏提示，当前尚无独立帮助界面 |
 
 ## 页面
 
@@ -34,3 +36,5 @@ npm run tui
 cd tui
 npm test
 ```
+
+跨项目安装、日常维护与恢复步骤见 [个人用户操作手册](../docs/guides/personal-user-manual.zh-CN.md)。

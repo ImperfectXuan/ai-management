@@ -1,9 +1,12 @@
+> **文档属性：历史评审或验证方法**（2026-10-10 补充范围说明）。原文描述的是文件日期对应的阶段；设计确认、任务勾选或评审发现不代表当前交付状态。
+> 当前需求见 [SPEC](../../SPEC.md)，实现状态与修复证据见 [PROGRESS](../../PROGRESS.md)，本文件的需求关联见 [TRACEABILITY](../../TRACEABILITY.md)。原始执行指令仅适用于原阶段，后续开发按 [SDD](../../SDD.md) 建立功能规格。
+
 # Code Review — 技能业务域
 
 **日期**：2026-08-24
 **范围**：技能（Skills）业务域全链路
 **审查者**：TRAE（静态审查 + 代码走查）
-**关联**：[FEATURE_BREAKDOWN.md §2](./../FEATURE_BREAKDOWN.md) · [SPEC.md §技能](./../SPEC.md) · [2026-08-04-tui-design.md](./../specs/2026-08-04-tui-design.md)
+**关联**：[FEATURE_BREAKDOWN.md §2](../../FEATURE_BREAKDOWN.md) · [SPEC.md §技能](../../SPEC.md) · [2026-08-04-tui-design.md](./../specs/2026-08-04-tui-design.md)
 
 ---
 

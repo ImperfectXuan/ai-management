@@ -9,6 +9,10 @@
 
 ### Added
 
+- 本机隔离演示入口、两轮真实引擎演示验证与带 SHA-256 清单的源码快照，便于冻结当前未提交实现。
+
+- 个人用户操作手册：首次安装、已有配置收编、项目级同步、规则 / MCP / 技能 / 记忆维护、TUI 与 Desktop 操作、密钥边界与故障恢复。
+
 - 初始仓库结构，包含 `.ai-workspace/` 核心目录。
 - 规范规则框架（`rules/`），包含领域子目录。
 - Codex、Claude Code、Cursor、Trae 的适配器模板（`mapping.yaml`）。
@@ -32,11 +36,19 @@
 
 ### Changed
 
+- Desktop 采用浅色配置工作台：左侧分组导航、总库到四工具的分发概览、统一控件和键盘焦点；收编按来源、审核、计划、结果分步展示，变更来源后旧审核与计划自动失效。
+
+- 按 SDD 整理文档：总体需求与验收条件、需求追踪矩阵、功能规格模板与维护约定；区分历史设计、当前能力和执行证据，修正三端架构边界与重复待办。
+
 - CLI 从分散的 `sync.sh` / `validate.sh` 升级为统一 `aiws` 命令，包含 sync / validate / mcp / skills / secrets / import 子命令。
 - `aiws sync` 新增 `--only rules|mcp|skills` 模块过滤（CI 仅同步规则：mcp 需要 vault、skills 有链接副作用）。
 - 模块开关 `is_module_enabled` 支持点号嵌套键（如 `rules.versioning.enabled`），顶层键行为不变。
 
 ### Fixed
+
+- 修复 Desktop 密钥 JSON 桥接与错误反馈，构建前强制执行类型检查。
+- Desktop 批量同步复用 CLI，补齐四工具规则、context 和 Skills；默认项目范围，取消与失败不再报告成功。
+- 修复规则待同步状态、规则版本记录误计数、差异页格式转换误报、长路径滚动布局、入库写入路径预览和回退状态展示。
 
 - `mcp.json` 非法时的错误函数名（`error` 不存在，set -e 下会崩溃）改为 `log_error`。
 

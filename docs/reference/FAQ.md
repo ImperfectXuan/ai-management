@@ -4,7 +4,7 @@
 
 ### AI Workspace 解决什么问题？
 
-AI Coding 工具（Claude Code、Codex、Cursor、Trae）各自读取自己的指令文件。当项目使用多个工具时，同样的规则必须在 `AGENTS.md`、`CLAUDE.md`、`.cursorrules` 等文件中重复维护。AI Workspace 为所有项目规则提供单一规范来源，通过薄适配器生成每个工具的原生格式。
+AI Coding 工具（Claude Code、Codex、Cursor、Trae）各自读取自己的指令文件。当项目使用多个工具时，同样的规则必须在 `AGENTS.md`、`CLAUDE.md`、`.cursor/rules/*.mdc` 等文件中重复维护。AI Workspace 为所有项目规则提供单一规范来源，通过薄适配器生成每个工具的原生格式。
 
 ### 这是要替代工具自身的配置系统吗？
 
@@ -16,7 +16,7 @@ AI Coding 工具（Claude Code、Codex、Cursor、Trae）各自读取自己的�
 
 ### 会增加 AI 工具启动延迟吗？
 
-不会。AI Workspace 是基于文件的系统。工具启动读取的文件数量与之前相同 —— 同步步骤在提交时离线完成。
+不会。AI Workspace 是基于文件的系统。同步在用户命令、提交检查或 CI 中执行，不在 AI 工具启动时额外运行同步服务；逐条规则生成可能改变文件数量。
 
 ## 安装与配置
 
@@ -30,14 +30,14 @@ AI Coding 工具（Claude Code、Codex、Cursor、Trae）各自读取自己的�
 
 ### 支持 Windows 吗？
 
-支持。目录结构和脚本设计为跨平台兼容。Sync 脚本使用 POSIX 兼容的 shell，通过 Git Bash、WSL 或 MSYS2 在 Windows 上运行。
+CLI 脚本按 POSIX shell 设计，Windows 需 Git Bash、WSL 或 MSYS2 等环境及相应依赖。链接支持 junction / copy 回退，但真实 Windows 环境验证仍待补齐；Desktop 当前交付目标为 macOS。见 [进度](../PROGRESS.md)。
 
 ## 双向同步
 
 ### 什么是 import？与 sync 有何区别？
 
 - **`aiws sync`**（正向）：将 `.ai-workspace/` 规范层的规则、MCP、Skills **推送**到各工具的原生配置文件
-- **`aiws import`**（反向）：从各工具已安装的 MCP 服务器和 Skills **拉取**到规范层，纳入统一管理
+- **`aiws import`**（反向）：从工具原生 MCP、Skills 和未纳管规则 **拉取**到规范层，纳入统一管理
 
 两个方向互补：sync 保证工具间一致，import 让你在建立统一管理前不必手动迁移已有配置。
 
@@ -93,7 +93,7 @@ Sync 脚本通过 `jq` 和 `awk` 实现 JSON ↔ TOML 的双向转换，无需�
 
 ### 可以编写仅适用于部分工具的规则吗？
 
-可以。在 `mapping.yaml` 中将规则的 `required` 设为 `false`，该领域规则仅在特定项目上下文中加载。
+可以，在规范规则 frontmatter 中使用 `tools: [codex, claude]` 等字段限定工具，并在对应 mapping 登记来源。`required` 控制装载语义，Cursor / Trae 的 `false` 表示按 glob 装载，不表示排除该工具。见 [架构说明](ARCHITECTURE.md)。
 
 ### 如何写好一条规则？
 
@@ -103,11 +103,11 @@ Sync 脚本通过 `jq` 和 `awk` 实现 JSON ↔ TOML 的双向转换，无需�
 
 ### 如何保持生成文件的同步？
 
-在每次规则更改后运行 `.ai-workspace/scripts/aiws sync`。建议配置 pre-commit hook 自动运行。
+在每次规则更改后运行 `.ai-workspace/scripts/aiws sync`。pre-commit hook 用于校验与拦截漂移；发现漂移后先手动同步再提交。
 
 ### 应该提交生成的文件吗？
 
-应该。大多数 AI Coding 工具直接读取这些文件，不会运行构建步骤。提交生成的文件确保工具始终看到最新规则，无需贡献者本地运行 sync。CI 会验证生成文件是否与规范来源匹配。
+按仓库策略决定。提交生成文件可让协作者直接读取；若选择忽略，则在使用前运行 sync。本仓库忽略部分生成产物，CI 尊重 `.gitignore`，不会强制添加；manifest 或规则变更日志入库不能代替生成文件验收。
 
 ### 如何管理不同机器上的 MCP 差异？
 

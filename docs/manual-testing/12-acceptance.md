@@ -2,7 +2,8 @@
 
 > **测试对象**：全量自动化回归（shell + TUI + Desktop），以及汇总所有功能面的最终验收清单。
 > **前置**：00–11 各篇均已完成。
-> **写文件**：否（回归测试只读/沙盒）。
+> **写文件**：测试通常写入临时沙盒；执行前按环境手册隔离目标与凭据。
+> **需求关联**：[TRACEABILITY](../TRACEABILITY.md)；下方用例数来自 2026-09-07 历史记录，当前以实际运行结果为准，本轮未运行功能回归。
 
 ---
 
@@ -22,7 +23,7 @@
 ```bash
 cd /Users/xuanyi/Documents/AI-management
 
-# ── CLI shell 套件（7 个，共 88 用例） ──
+# ── CLI shell 套件（用例数以实际执行为准） ──
 sh .ai-workspace/scripts/test/test-ci.sh
 sh .ai-workspace/scripts/test/test-drift-check.sh
 sh .ai-workspace/scripts/test/test-import-rules.sh
@@ -31,22 +32,22 @@ sh .ai-workspace/scripts/test/test-skills-link.sh
 sh .ai-workspace/scripts/test/test-memory.sh
 sh .ai-workspace/scripts/test/test-rules-tools.sh
 
-# ── TUI（19 用例） ──
+# ── TUI（完整套件） ──
 cd tui && npm test && cd ..
 
-# ── Desktop core + renderer（65 用例） ──
+# ── Desktop core + renderer（完整套件） ──
 cd electron && npm test && cd ..
 ```
 
 **预期**：
 
-| 套件 | 用例数（约） | 通过标志 |
+| 套件 | 历史用例数（2026-09-07） | 当次通过标志 |
 |---|---|---|
 | shell 套件（7 个脚本） | 88 | 各脚本输出 `PASS` / `ok`，无 `FAIL` |
-| TUI | 19 | `pass 19 / fail 0` |
-| Desktop | 65 | `pass 65 / fail 0` |
+| TUI | 19 | 完整套件 `fail 0`，记录实际用例数 |
+| Desktop | 65 | 完整套件 `fail 0`，记录实际用例数 |
 
-**判定**：✅ 全部绿；❌ 任一 `FAIL` 需定位（见 §4 排查）。
+**判定**：✅ 全部绿；❌ 任一 `FAIL` 需定位（见 §3 排查）。
 
 ---
 
@@ -76,8 +77,8 @@ cd electron && npm test 2>&1 | grep -A 20 "✖\|not ok"
 
 ### 4.2 六大业务域
 
-- [ ] 规则：14 条来源 + `mapping.yaml` 装载语义 + `rules status/history` + `tools` 过滤。
-- [ ] 技能：`list`（25 个 + 三态）+ `link/unlink`（symlink）+ `install`。
+- [ ] 规则：按当前规范源清点来源 + `mapping.yaml` 装载语义 + `rules status/history` + `tools` 过滤。
+- [ ] 技能：`list`（与当前规范源一致 + 三态）+ `link/unlink`（symlink）+ `install`。
 - [ ] MCP：`list/show/add/remove` + `scope` 分发 + JSON/TOML 生成。
 - [ ] 密钥：`audit`（免依赖）+ JSON 只读不挂起 + vault 初始化 + `set/list/remove` + 占位符告警。
 - [ ] 记忆：`list/new/show` + ADR 编号自增 + context 注入 sync + validate 校验。
@@ -93,7 +94,7 @@ cd electron && npm test 2>&1 | grep -A 20 "✖\|not ok"
 
 - [ ] TUI：6 页逐页走查通过。
 - [ ] Desktop：8 页 + 托盘 + dmg 打包通过。
-- [ ] 自动化回归：shell 88 + TUI 19 + Desktop 65 全绿。
+- [ ] 自动化回归：当次完整 shell + TUI + Desktop 套件无失败，记录实际用例数。
 
 ---
 
@@ -105,11 +106,15 @@ cd electron && npm test 2>&1 | grep -A 20 "✖\|not ok"
 # AI Workspace 人工系统测试报告
 
 - 测试人 / 日期：
+- 被测 commit：
+- 关联需求 / 验收 ID：
+- 适用端、执行范围与未执行项：
+- 自动化输出 / 日志位置：
 - 环境：macOS <版本> · Node <版本> · jq <版本>
 
 ## 结果汇总
 
-| 篇 | 切面 | 结果（✅/❌） | 备注 |
+| 篇 | 切面 | 结果（通过 / 失败 / 未执行 / 不适用） | 备注与验收 ID |
 |---|---|---|---|
 | 00 | 环境准备 | | |
 | 01 | CLI 基础 + setup + validate | | |

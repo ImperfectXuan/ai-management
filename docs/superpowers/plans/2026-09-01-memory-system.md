@@ -1,3 +1,6 @@
+> **文档属性：原始任务分解**（2026-10-10 补充范围说明）。原文描述的是文件日期对应的阶段；设计确认、任务勾选或评审发现不代表当前交付状态。
+> 当前需求见 [SPEC](../../SPEC.md)，实现状态与修复证据见 [PROGRESS](../../PROGRESS.md)，本文件的需求关联见 [TRACEABILITY](../../TRACEABILITY.md)。原始执行指令仅适用于原阶段，后续开发按 [SDD](../../SDD.md) 建立功能规格。
+
 # 记忆系统（ADR / context / decisions）Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

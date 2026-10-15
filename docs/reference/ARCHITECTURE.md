@@ -6,6 +6,9 @@ scope: all
 
 # 架构设计
 
+> 文档角色：SDD 系统设计；整理日期：2026-10-10。需求见 [SPEC](../SPEC.md)，任务与验收关联见 [追踪矩阵](../TRACEABILITY.md)。
+> 当前范围依据核心源码与既有进度记录核对；本次未执行功能验收。
+
 ## 概述
 
 AI Workspace 采用**三层架构**，将项目知识与工具特定格式解耦。
@@ -13,7 +16,7 @@ AI Workspace 采用**三层架构**，将项目知识与工具特定格式解耦
 ```
 ┌──────────────────────────────────────────┐
 │           根层（工具面向层）               │
-│  AGENTS.md  CLAUDE.md  .cursorrules ...  │
+│  AGENTS.md  CLAUDE.md  工具规则目录 ...  │
 │         ↑ 生成的薄桩文件                  │
 ├──────────────────────────────────────────┤
 │           适配器层                         │
@@ -50,7 +53,7 @@ AI Workspace 采用**三层架构**，将项目知识与工具特定格式解耦
 
 ### 根层
 
-工具原生入口点。这些是 AI Coding 工具实际读取的文件（`AGENTS.md`、`CLAUDE.md`、`.cursorrules`、`.trae/rules.md`）。它们由 sync 脚本生成，**绝不**应手动编辑以更改内容。
+工具原生入口点。这些是 AI Coding 工具实际读取的文件（`AGENTS.md`、`CLAUDE.md`、`.cursor/rules/*.mdc`、`.trae/rules/*.md`）。它们由 sync 脚本生成，**绝不**应手动编辑以更改内容。
 
 此外还包括工具原生 MCP 配置（`.mcp.json`、`.codex/config.toml` 等）和 Skills 目录。
 
@@ -64,8 +67,8 @@ graph TD
     B --> C{对每个工具适配器}
     C --> D[Codex: 生成 AGENTS.md + config.toml]
     C --> E[Claude: 生成 CLAUDE.md + .mcp.json]
-    C --> F[Cursor: 生成 .cursorrules + mcp.json]
-    C --> G[Trae: 生成 .trae/rules.md + mcp.json]
+    C --> F[Cursor: 生成 .cursor/rules/*.mdc + mcp.json]
+    C --> G[Trae: 生成 .trae/rules/*.md + mcp.json]
     D --> H[AI Coding 工具读取原生文件]
     E --> H
     F --> H
@@ -79,6 +82,9 @@ graph TD
     A[aiws import] --> B{扫描所有工具}
     B --> C[读取工具原生 MCP 配置]
     B --> D[扫描工具 Skills 目录]
+    B --> M[读取工具原生规则]
+    M --> N[跳过已管理内容与冲突]
+    N --> O[逐条转换或整文件导入并登记 mapping]
     C --> E[解析 JSON / TOML 格式]
     E --> F[jq 合并进 mcp.json]
     F --> G[去重：跳过同名 server]
@@ -91,11 +97,11 @@ graph TD
 
 ### 全量同步（sync）
 
-`aiws sync` 同时执行三个阶段：
+CLI `aiws sync` 的完整流程包含三个阶段（工具 / scope / 模块选项会限定范围，Desktop 范围见后文）：
 
 | 阶段 | 内容 | 源 → 目标 |
 |---|---|---|
-| **规则同步** | 7 核心 + 6 领域规则 | `.ai-workspace/rules/*.md` → `CLAUDE.md` 等 |
+| **规则同步** | 核心规则 + 领域规则（数量以规范源为准） | `.ai-workspace/rules/*.md` → `CLAUDE.md` 等 |
 | **MCP 同步** | MCP 服务器配置 | `.ai-workspace/mcp/mcp.json + mcp.local.json` → 各工具原生配置 |
 | **Skills 同步** | 跨工具技能定义 | `.ai-workspace/skills/*/` → symlink 到各工具 skills 目录 |
 
@@ -208,7 +214,7 @@ aiws
 ├── import             # 反向导入：工具原生文件 → 规范层
 │   ├── mcp            #   从工具导入 MCP 配置
 │   ├── skills         #   从工具导入 Skills
-│   └── rules          #   从工具导入 Rules（预留）
+│   └── rules          #   从工具导入未纳管规则（已实现）
 ├── mcp                # MCP 管理
 │   ├── list           #   列出所有 MCP 服务器
 │   ├── add            #   添加新 MCP 服务器
@@ -231,10 +237,10 @@ aiws
 | 决策 | 原因 |
 |---|---|
 | MCP 配置存储为 JSON（非 YAML） | `jq` 生态成熟，解析可靠；mapping.yaml 用 YAML 是因为需要人类编辑注释 |
-| 规则全量拼接（当前） | 简单可靠；`mapping.yaml` 的 `required` 字段预留给未来按需选择 |
+| mapping 驱动生成 | 只处理 mapping 中的来源；逐文件工具将 `required` 映射为 `alwaysApply`，`false` 不表示停止生成 |
 | Skills 用 symlink（非复制） | 修改源文件所有工具立即可见，节省磁盘空间 |
 | Codex MCP 输出 TOML（非 JSON） | Codex 原生格式就是 TOML，需要 awk 解析而不引入额外依赖 |
-| Shell 脚本（非 Node/Python） | 零依赖；POSIX shell 在所有平台可用 |
+| CLI 使用 POSIX shell | 依赖 Git、jq 等系统工具；密钥读写另需 age / TOTP 工具，不是零依赖；Desktop 核心使用 TypeScript |
 
 ## 目录命名理由
 
@@ -253,3 +259,32 @@ aiws
 ### 为什么 `memory/` 不是 `rules/` 的子目录？
 
 规则是规定性的（"这样做"）。记忆是描述性的（"我们决定了这个"）。它们有不同的更新频率、不同的作者和不同的审查要求。
+
+## 三个交付物的实现边界
+
+共享规范源不等于共享执行引擎。原先“CLI 唯一业务逻辑”的描述不适用于当前仓库。
+
+| 端 | 调用与读写方式 | 当前边界 |
+|---|---|---|
+| CLI | `scripts/aiws` → `scripts/lib/` → `.ai-workspace/` 与工具原生文件 | 完整规则 / MCP / 技能同步、导入、validate、memory、hooks / CI 与规则版本化 |
+| TUI | CLI 子进程 + `tui/src/lib/rules.js` 本地读写 mapping | 六页交互；规则列表与装载设置有本地实现，不是所有读写都走 CLI |
+| Desktop | renderer → IPC → core；sync / intake / vault 经 CLI 桥接 | `syncRun` 复用共享 CLI，包含四工具规则、context、MCP 与 Skills；默认仅 project scope，规则单独操作传 `--only rules` |
+
+Desktop 同步与收编使用共享 CLI 引擎；规则开关、MCP CRUD 和独立技能操作仍有 TS 文件操作。取消终止 CLI 进程组，已写文件不自动回滚。差异页在临时目录用 CLI 生成预期产物后对比实际文件，避免将格式转换误报为漂移。GUI、IPC 与 CLI 各层仍需各自验收；测试不解密真实 vault。
+
+源码依据：`tui/src/lib/aiws.js`、`tui/src/lib/rules.js`、`electron/src/core/sync.ts`、`electron/src/core/vault-bridge.ts`。详细能力见 [FEATURE_BREAKDOWN](../FEATURE_BREAKDOWN.md)，未完成项查 [PROGRESS](../PROGRESS.md)。
+
+## 规则元数据与 scope 语义
+
+- 规则 `scope` 表示语言 / 领域，`globs` 表示装载匹配，`tools` 表示适用工具；`tools` 支持内联或块列表，缺省适用所有工具。
+- CLI `--scope global|project` 是 MCP / 技能的分发位置，不是规则领域筛选器。规则仍在项目仓库生成。
+- Cursor / Trae：mapping 中登记的来源与 `tools` 共同决定是否生成；`required` 决定 `alwaysApply`，`false` 不等于禁用或删除。
+- Claude / Codex：单文件模式的筛选由 CLI 执行，不能套用逐文件工具的 `alwaysApply` 语义。
+
+## 记忆、自动化与规则追踪
+
+- `aiws memory list|new|show` 管理 `.ai-workspace/memory/{adr,context,decisions}/`；CLI 同步把 context 注入 Claude / Codex 头部与 Cursor / Trae 的 `00-context`，validate 检查元数据与漂移。
+- `aiws hooks install|uninstall|status` 管理 pre-commit；`aiws ci install|uninstall` 管理 GitHub Actions 自动同步工作流。
+- `aiws rules status|history <id>` 使用 `rules/.manifest.sha256` 与 Git 历史追踪规则；同步成功消费规则层后更新 manifest 与自动维护的 `rules/CHANGELOG.md`，无变化不写入。
+- manifest 是规范源字节快照，与工具无关。单工具同步也推进快照，不代表其他工具已同步或全部验收通过。
+- MCP 主配置与本地覆盖的路径、工具授权配置和 vault 均属于文件契约；真实凭据不写入产品规格或提交日志。

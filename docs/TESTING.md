@@ -1,5 +1,8 @@
 # AI Workspace — 逐步验证测试指导
 
+> 文档角色：验证方法，主要对应历史 TUI / Desktop task；2026-10-10 补充范围说明。需求与验收关联见 [TRACEABILITY](TRACEABILITY.md)。本文不是当前版本的执行报告，首版限制不得外推为三端共同限制。
+> 当次验收记录 commit、环境、命令、实际结果与验收 ID；完整结果使用 [功能模板](specs/TEMPLATE.md) 的 verification 章节归档。
+
 > 本文档是一份**面向验证者**的逐步测试手册。它把两份实施计划（TUI 12 个 task、Desktop 20 个 task）中散落的 TDD 用例与验证命令，沉淀为一份**步骤明晰、通俗易懂、每个 task 点都有具体测试用例**的指南。
 >
 > 📘 **互补文档**：若要按功能切面做「完整人工系统测试、达到上线验收」，请改用 [manual-testing/ 手册](manual-testing/README.md)——它面向仅懂概念的测试者，从环境准备到验收清单逐篇执行。
@@ -21,10 +24,10 @@
 ### 0.2 安装依赖
 
 ```bash
-# TUI（依赖已装，如缺则执行）
+# TUI（首次运行时安装依赖）
 cd tui && npm install
 
-# 桌面应用（当前未装，需先安装）
+# 桌面应用（首次运行时安装依赖）
 cd electron && npm install
 ```
 
@@ -440,7 +443,7 @@ sh .ai-workspace/scripts/test/test-skills-link.sh      # skills 链接/三态/�
     console.log('hunks:', JSON.stringify(r.diff.hunks).slice(0, 300));
   })();"
   ```
-- **通过标准**：单测 PASS；冒烟能对比源文件与生成文件（先 sync 再对比，预期 `identical:false` 属正常，因生成文件含 frontmatter）。
+- **通过标准**：单测 PASS；冒烟能对比源文件与生成文件（先 sync 再对比，预期 `identical:true`；使用临时目录内 CLI 生成的预期产物对比实际生成文件）。
 
 ### Task 10：main/IPC 接线
 
@@ -567,11 +570,11 @@ sh .ai-workspace/scripts/test/test-skills-link.sh      # skills 链接/三态/�
 
 ## 第 5 章 已知限制与跳过项
 
-以下功能首版未实现或为占位，**验证时不应判定为失败**：
+下表记录原 TUI / Desktop 首版限制；当前能力需结合 [能力盘点](FEATURE_BREAKDOWN.md) 和 [架构端差异](reference/ARCHITECTURE.md) 判断。不能把 Desktop 的限制套用到 CLI，也不能因历史记录而直接跳过当前需求验收：
 
 | 限制 | 说明 |
 |---|---|
-| claude/codex 单文件规则生成 | 首版仅 cursor/trae 逐条生成，claude/codex 规则生成跳过 |
+| Desktop 四工具同步 | 2026-10-15 起复用 CLI 引擎，包含单文件规则、context 和 Skills；默认 project scope |
 | 设置页语言/通知持久化 | 界面占位，未持久化 |
 | 仓库文件夹选择器 | 首版用路径输入框，dialog 选择器延后 |
 | 应用图标 / 代码签名 / 公证 | 占位图标；签名需 Apple 开发者账号 |

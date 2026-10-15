@@ -11,7 +11,7 @@
 
 AI Workspace 是位于仓库内的项目级基础设施层。它为规则、约定、技能和项目记忆提供**单一事实来源**，然后将它们分发到你使用的每个 AI Coding 工具 — Claude Code、Codex、Cursor、Trae 等。
 
-你不用再维护内容重叠的 `AGENTS.md`、`CLAUDE.md`、`.cursorrules` 和 `.trae/` 文件，而是维护**一套规范规则**。薄适配器将那些规则翻译为每个工具的原生格式。
+你不用再维护内容重叠的 `AGENTS.md`、`CLAUDE.md`、`.cursor/rules/` 和 `.trae/rules/` 文件，而是维护**一套规范规则**。薄适配器将那些规则翻译为每个工具的原生格式。
 
 ## 为什么需要它？
 
@@ -34,6 +34,8 @@ AI Workspace 是位于仓库内的项目级基础设施层。它为规则、约�
 
 ## 快速开始
 
+首次把 AI Workspace 安装到已有项目，请先按 [个人用户操作手册](docs/guides/personal-user-manual.zh-CN.md) 完成复制、备份与导入；以下命令适用于已存在 CLI 的目标项目。
+
 ```bash
 # 1. 进入项目根目录
 cd your-project
@@ -52,6 +54,8 @@ vim .ai-workspace/rules/00-core.md
 # 5. 同步到所有工具
 .ai-workspace/scripts/aiws sync
 ```
+
+本机运行桌面演示：`cd electron && npm ci && npm run demo`。独立样例、重复验证与版本冻结见 [本机演示指南](docs/guides/local-demo.zh-CN.md)。
 
 ## 工作原理
 
@@ -120,8 +124,8 @@ AI Workspace 支持**双向**操作：
 ├── docs/                        # 文档
 ├── AGENTS.md                    # Codex 入口（自动生成）
 ├── CLAUDE.md                    # Claude Code 入口（自动生成）
-├── .cursorrules                 # Cursor 入口（自动生成）
-├── .trae/rules.md               # Trae 入口（自动生成）
+├── .cursor/rules/*.mdc          # Cursor 规则（自动生成）
+├── .trae/rules/*.md              # Trae 规则（自动生成）
 ├── CONTRIBUTING.md
 ├── CHANGELOG.md
 └── ROADMAP.md
@@ -169,7 +173,11 @@ aiws import mcp --from codex      # 从 Codex 导入 MCP
 
 | 文档 | 说明 |
 |---|---|
-| [总体 Spec](docs/SPEC.md) | 项目定位、架构、三交付物、目录结构 |
+| [个人用户操作手册](docs/guides/personal-user-manual.zh-CN.md) | 首次安装、纳管项目、日常维护、TUI / Desktop 使用与故障恢复 |
+| [总体需求规格](docs/SPEC.md) | 目标、范围、需求 ID 与验收条件 |
+| [SDD 文档约定](docs/SDD.md) | 需求 → 设计 → 任务 → 验证的组织与维护方式 |
+| [需求追踪矩阵](docs/TRACEABILITY.md) | 设计、既有任务与验收入口，以及证据缺口 |
+| [项目进度](docs/PROGRESS.md) | 实施状态与完成证据 |
 | [测试指导](docs/TESTING.md) | 按 task 逐步验证的测试用例 |
 | [人工测试手册](docs/manual-testing/README.md) | 面向测试者的按功能切面逐步验收（上线验收标准） |
 | [文档索引](docs/README.md) | 全部文档的导航 |

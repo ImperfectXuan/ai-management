@@ -1,5 +1,7 @@
 # 设计哲学
 
+> 文档角色：设计原则与权衡，不作为当前能力或依赖清单；实际设计见 [ARCHITECTURE](ARCHITECTURE.md)，需求见 [SPEC](../SPEC.md)。
+
 ## 核心原则
 
 ### 1. 规范核心，薄适配器
@@ -22,7 +24,7 @@
 
 ### 4. Git 原生
 
-一切皆文件。一切版本化。无数据库，无外部服务，无运行时依赖。
+规范内容以文件保存，适合通过 Git 版本化；本地覆盖与真实凭据不提交。不需要独立数据库或配置服务，但 CLI 仍依赖系统工具，TUI / Desktop 需要各自运行时。
 
 **理由**：Git 是软件项目的通用协作工具。基于 Git 构建意味着零新增基础设施、完整审计追踪，以及 AI 配置的熟悉工作流（分支、审查、合并）。
 
@@ -39,7 +41,7 @@
 | 规则使用 Markdown，而非 YAML/JSON | 结构化格式 | Markdown 人类可写、AI 可读；YAML frontmatter 处理元数据 |
 | sync 脚本生成文件，而非 symlink | 符号链接 | Symlink 在 Windows 上需要管理员权限，在 Git 中行为不一致 |
 | 每个规则主题一个文件 | 单一巨型规则文件 | 细粒度文件支持按工具和领域选择性包含 |
-| Shell 脚本用于 sync/validate | Node.js、Python | 零依赖；POSIX shell 随处可用 |
+| CLI sync/validate 使用 Shell | 为 CLI 引入 Node.js、Python 运行时 | 复用 POSIX shell 与 jq 等系统工具；不表示整个项目零依赖，Desktop 核心另有 TS 实现 |
 | 点前缀目录 `.ai-workspace/` | 非隐藏目录 | 默认隐藏减少 `ls` 噪音，同时编辑器可见 |
 
 ## 反模式
