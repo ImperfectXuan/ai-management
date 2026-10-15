@@ -55,11 +55,24 @@ intake_realpath() {
   printf '%s\n' "$target"
 }
 
+# 转绝对路径，但保留符号链接原样（父目录回溯要逐级检查链接）
+# 回溯以 / 为终点，而 dirname "." 仍是 "."：相对路径会让它原地打转
+intake_abspath() {
+  local path="$1"
+  case "$path" in
+    /*) printf '%s\n' "$path" ;;
+    *) printf '%s/%s\n' "${PWD%/}" "${path#./}" ;;
+  esac
+}
+
 # 检查路径（含父目录）的真实路径是否在允许范围内
 # 在读取任何内容前调用；任一父目录是越界符号链接即拒绝
 # 输出 "0|<real>" 或 "2|link_out_of_scope"
 intake_check_path_scope() {
   local target="$1" allowed_roots="$2"
+
+  # 回溯依赖绝对路径，相对入参先归一化
+  target="$(intake_abspath "$target")"
 
   if [ ! -e "$target" ] && [ ! -L "$target" ]; then
     printf '0|%s\n' "$target"
@@ -133,6 +146,9 @@ intake_check_path_scope() {
 intake_safe_resolve_link() {
   local link="$1" allowed_roots="$2"
 
+  # 循环检测的回溯同样以 / 为终点；realpath 兜底会原样返回入参，相对路径会让它原地打转
+  link="$(intake_abspath "$link")"
+
   if [ ! -e "$link" ] && [ -L "$link" ]; then
     printf '1|broken_symlink\n'
     return 0
@@ -162,15 +178,16 @@ intake_safe_resolve_link() {
     probe="$(dirname "$probe")"
   done
 
-  # 越界检测
-  local root
+  # 越界检测（允许根可能是相对路径，需一并比对真实路径）
+  local root root_real
   local in_scope=0
   OLD_IFS="$IFS"
   IFS=":"
   for root in $allowed_roots; do
     IFS="$OLD_IFS"
     [ -n "$root" ] || continue
-    if intake_path_within "$real" "$root"; then
+    root_real="$(intake_realpath "$root")"
+    if intake_path_within "$real" "$root" || intake_path_within "$real" "$root_real"; then
       in_scope=1
       break
     fi

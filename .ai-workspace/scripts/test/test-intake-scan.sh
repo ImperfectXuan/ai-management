@@ -431,6 +431,93 @@ else
 fi
 
 # ---------------------------------------------------------------
+# 相对路径来源（回归：父目录回溯以 / 为终点，而 dirname "." 仍是 "."，
+# 相对路径会让回溯原地打转，扫描永不返回）
+# ---------------------------------------------------------------
+echo ""
+echo "--- 相对路径来源 ---"
+
+# macOS 无 timeout 命令：后台运行 + 轮询期限，挂起判失败而不是拖死整个套件
+run_with_deadline() {
+  # $1=stdout 日志 $2=期限秒数 $3..=命令；stderr 写入 "$1.err"
+  local log="$1" deadline="$2"
+  shift 2
+  "$@" > "$log" 2> "${log}.err" &
+  local pid=$! n=0
+  while kill -0 "$pid" 2>/dev/null && [ "$n" -lt "$deadline" ]; do
+    sleep 1
+    n=$((n + 1))
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -9 "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    return 124
+  fi
+  wait "$pid" 2>/dev/null || return 1
+  return 0
+}
+
+REL_BASE="${SANDBOX}/rel-base"
+REL_REPO="${REL_BASE}/总库"
+REL_SRC="${REL_BASE}/来源"
+mkdir -p "${REL_REPO}/.ai-workspace/rules" \
+         "${REL_SRC}/.cursor/rules" \
+         "${REL_SRC}/vendor/skills/demo-skill" \
+         "${REL_SRC}/.agents"
+printf -- '---\nalways_apply: false\n---\nrelative rule\n' > "${REL_SRC}/.cursor/rules/rel-rule.mdc"
+printf -- '---\nname: demo-skill\ndescription: 相对来源演示技能\n---\nbody\n' > "${REL_SRC}/vendor/skills/demo-skill/SKILL.md"
+# 根内符号链接：相对允许根下必须解析成功，不能误判越界
+ln -s "${REL_SRC}/vendor/skills" "${REL_SRC}/.agents/skills"
+
+# 1) 单位：相对目标存在时，父目录回溯必须在期限内结束
+REL_SCOPE_LOG="${SANDBOX}/rel-scope.log"
+if (cd "$REL_SRC" && run_with_deadline "$REL_SCOPE_LOG" 5 \
+    intake_check_path_scope "./.cursor/rules/rel-rule.mdc" "$REL_SRC"); then
+  expect_contains "$REL_SCOPE_LOG" "0|" "relative_target_scope_check_terminates"
+else
+  t_fail "relative_target_scope_check_terminates (deadline exceeded)"
+fi
+
+# 2) 端到端：相对 repo 与 source 扫描必须在期限内完成，且结果与绝对路径一致
+REL_SCAN_LOG="${SANDBOX}/rel-scan.log"
+if (cd "$REL_BASE" && run_with_deadline "$REL_SCAN_LOG" 30 \
+    "${SCRIPT_DIR}/../aiws" intake scan --repo "总库" --source "来源" --preview --json); then
+  REL_RESULT="$(cat "$REL_SCAN_LOG")"
+  expect_json "$REL_RESULT" '.schema' 'intake/v1' 'relative_source_scan_schema'
+  expect_json "$REL_RESULT" '[.occurrences[] | select(.asset_type == "rule")] | length' '1' 'relative_source_rule_scanned'
+  expect_json "$REL_RESULT" '[.occurrences[] | select(.asset_type == "skill") | select(.original_name == "demo-skill") | .read_status] | first' 'ok' 'relative_source_symlinked_skill_scanned'
+
+  ABS_RESULT="$("${SCRIPT_DIR}/../aiws" intake scan \
+    --repo "$REL_REPO" --source "$REL_SRC" --preview --json 2>/dev/null)" || true
+  if [ -n "$ABS_RESULT" ]; then
+    REL_COUNT="$(printf '%s' "$REL_RESULT" | jq '.occurrences | length')"
+    ABS_COUNT="$(printf '%s' "$ABS_RESULT" | jq '.occurrences | length')"
+    if [ "$REL_COUNT" = "$ABS_COUNT" ] && [ "$REL_COUNT" -gt 0 ]; then
+      t_pass "relative_source_matches_absolute_count"
+    else
+      t_fail "relative_source_matches_absolute_count (rel=${REL_COUNT} abs=${ABS_COUNT})"
+    fi
+
+    REL_PATHS="$(printf '%s' "$REL_RESULT" | jq -r '.occurrences[].path' | sort)"
+    ABS_PATHS="$(printf '%s' "$ABS_RESULT" | jq -r '.occurrences[].path' | sort)"
+    if [ "$REL_PATHS" = "$ABS_PATHS" ] && [ -n "$REL_PATHS" ]; then
+      t_pass "relative_source_matches_absolute_paths"
+    else
+      t_fail "relative_source_matches_absolute_paths"
+    fi
+  else
+    t_fail "relative_source_matches_absolute_count (absolute scan produced no output)"
+    t_fail "relative_source_matches_absolute_paths (absolute scan produced no output)"
+  fi
+else
+  t_fail "relative_source_scan_schema (deadline exceeded)"
+  t_fail "relative_source_rule_scanned (deadline exceeded)"
+  t_fail "relative_source_symlinked_skill_scanned (deadline exceeded)"
+  t_fail "relative_source_matches_absolute_count (deadline exceeded)"
+  t_fail "relative_source_matches_absolute_paths (deadline exceeded)"
+fi
+
+# ---------------------------------------------------------------
 # 汇总
 # ---------------------------------------------------------------
 echo ""
