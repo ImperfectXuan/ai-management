@@ -288,3 +288,12 @@ Desktop 同步与收编使用共享 CLI 引擎；规则开关、MCP CRUD 和独�
 - `aiws rules status|history <id>` 使用 `rules/.manifest.sha256` 与 Git 历史追踪规则；同步成功消费规则层后更新 manifest 与自动维护的 `rules/CHANGELOG.md`，无变化不写入。
 - manifest 是规范源字节快照，与工具无关。单工具同步也推进快照，不代表其他工具已同步或全部验收通过。
 - MCP 主配置与本地覆盖的路径、工具授权配置和 vault 均属于文件契约；真实凭据不写入产品规格或提交日志。
+
+
+## 拟议扩展：持久化同步版本状态（002）
+
+基线 `81195b4` 的 Desktop 已将统一内容库与应用项目分离：来源经 `AIWS_SOURCE_DIR` 传入，输出经 `AIWS_ROOT` 指定，运行时可使用应用自带 CLI。当前项目级 lastSyncAt 与组件内状态不构成工具/模块级成功证据。
+
+拟增加独立的本机同步状态 Store、来源指纹和统一执行 service，由 main 负责实际目标身份、串行执行和恢复；CLI 为实际消费输入和单元执行结果提供结构化契约，renderer 只查询和展示。记录保存在 Electron userData，不加入共享规范源，不复用规则 manifest 或收编 registry。
+
+这是方案草案，尚未实现。字段、失败边界与输入依赖以 [002 设计](../specs/002-sync-status/design.md) 为准；[任务](../specs/002-sync-status/tasks.md) 与 [验证](../specs/002-sync-status/verification.md) 追踪实施，当前状态见 [PROGRESS](../PROGRESS.md)。

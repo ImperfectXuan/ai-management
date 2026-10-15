@@ -33,6 +33,24 @@
 | NFR-COMPAT | [技能](manual-testing/03-skills.md)、[进度 §4](PROGRESS.md#4-skills-域修复收尾与遗留验证) | Windows 真机 junction / copy 验证尚未完成 |
 | NFR-FAILURE | [测试指导](TESTING.md)、[桌面验收](../electron/ACCEPTANCE.zh-CN.md) | 缺依赖、无效输入、冲突与取消需按受影响端分别执行 |
 
+## 2.1 功能 002 · 持久化同步版本状态
+
+扩展 REQ-SYNC / REQ-DESKTOP / NFR-SOURCE / NFR-SECURITY / NFR-FAILURE，基于 `81195b4` 的统一内容库与应用项目分离。功能规格与设计为草案，当前仅交付文档；实现状态仅在 [PROGRESS](PROGRESS.md) 维护，以下 AC 均未执行。
+
+| 功能需求 | 设计入口 | 任务入口 | 验收入口 |
+|---|---|---|---|
+| REQ-002-01 | [身份与隔离](specs/002-sync-status/design.md#2-分发单元与状态语义) | TASK-002-01、04 | AC-002-01、02：[验证](specs/002-sync-status/verification.md) |
+| REQ-002-02 | [指纹](specs/002-sync-status/design.md#3-指纹契约与输入边界) | TASK-002-02 | AC-002-03、04、05 |
+| REQ-002-03 | [持久化](specs/002-sync-status/design.md#5-本机记录与恢复) | TASK-002-01、06 | AC-002-06、07 |
+| REQ-002-04 | [实际完成回执](specs/002-sync-status/design.md#4-cli-回执与执行顺序) | TASK-002-03、04 | AC-002-08、09 |
+| REQ-002-05 | [失败与恢复](specs/002-sync-status/design.md#5-本机记录与恢复) | TASK-002-01、03、04 | AC-002-10、11、12 |
+| REQ-002-06 | [身份/锁](specs/002-sync-status/design.md#2-分发单元与状态语义)、[执行](specs/002-sync-status/design.md#4-cli-回执与执行顺序) | TASK-002-02、04、05 | AC-002-13、14 |
+| REQ-002-07 | [接口与界面](specs/002-sync-status/design.md#6-主进程接口与界面) | TASK-002-05、06 | AC-002-15、16 |
+| REQ-002-08 | [单项 Skills](specs/002-sync-status/design.md#6-主进程接口与界面) | TASK-002-05、06 | AC-002-17 |
+| REQ-002-09 | [安全指纹](specs/002-sync-status/design.md#3-指纹契约与输入边界)、[本机记录](specs/002-sync-status/design.md#5-本机记录与恢复) | TASK-002-01、02 | AC-002-18 |
+
+完整定义见 [spec.md](specs/002-sync-status/spec.md)，任务完成条件见 [tasks.md](specs/002-sync-status/tasks.md)。TASK-002-07 执行全部验收及收尾，文档链接检查不等于功能通过。
+
 ## 3. 历史材料与缺口
 
 | 材料 | 归属 | 使用方式 |

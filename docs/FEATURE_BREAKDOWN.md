@@ -429,3 +429,8 @@
 | 错误模型 | 🟡 | 🟡 | ✅ |
 
 > 🟡 表示已知部分覆盖，❓ 表示证据待核实；矩阵不替代当次验收。
+
+
+## 候选细化：持久化同步版本状态（002）
+
+[功能 002](specs/002-sync-status/spec.md) 基于独立内容库与应用项目，为 Desktop 提供按目标、工具、模块、scope 持久化的来源版本状态。用户已选定方案方向，工程细则为草案；现有 lastSyncAt、Skills linkStatus 和规则 manifest 不等于这项能力已经实现。设计与验收见功能包，实施进度仅查 [PROGRESS](PROGRESS.md)。
