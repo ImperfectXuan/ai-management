@@ -15,6 +15,7 @@ sync_skills() {
   
   if [ ! -d "$skills_dir" ]; then
     log_info "No skills directory found. Skipping skills sync."
+    sync_report_skip "no_entries"
     return 0
   fi
   
@@ -29,6 +30,7 @@ sync_skills() {
   
   if [ "$has_skills" = "0" ]; then
     log_info "No skills found. Add skills to skills/<name>/SKILL.md"
+    sync_report_skip "no_entries"
     return 0
   fi
   
@@ -73,6 +75,7 @@ sync_skills_for_tool() {
   
   if [ -z "$target_base" ]; then
     log_debug "Tool $tool does not support $scope skills scope"
+    sync_report_skip "tool_unsupported"
     return 0
   fi
   
@@ -81,6 +84,7 @@ sync_skills_for_tool() {
   
   # Link each skill
   local linked_count=0
+  local attempted_count=0
   
   local skill_glob="${skills_dir}"/*/
   if [ -n "$only_skill" ]; then
@@ -107,6 +111,7 @@ sync_skills_for_tool() {
     local source_path
     source_path="$(cd "$skill_dir" && pwd)"
     
+    attempted_count=$((attempted_count + 1))
     # Create link
     if create_link "$source_path" "$target_path"; then
       linked_count=$((linked_count + 1))
@@ -115,6 +120,15 @@ sync_skills_for_tool() {
   
   if [ "$linked_count" -gt 0 ]; then
     log_success "Skills synced: $tool ($scope) - $linked_count skill(s)"
+  fi
+
+  # 回执：全部技能链接成功才 applied；部分失败不得冒充完成（design §4）。
+  if [ "$attempted_count" -eq 0 ]; then
+    sync_report_skip "no_entries"
+  elif [ "$linked_count" -eq "$attempted_count" ]; then
+    sync_report_apply
+  else
+    sync_report_fail "partial_failure"
   fi
 }
 

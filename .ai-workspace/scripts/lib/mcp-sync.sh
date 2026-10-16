@@ -4,6 +4,19 @@
 # Requires: common.sh to be sourced first
 
 # ============================================================================
+# Effective Config Merge（sync 与 --describe-inputs 共用，禁止两处语义漂移）
+# ============================================================================
+
+# mcp.json 为基底、mcp.local.json 后入（jq `*`：server 对象深合并、数组整体替换），
+# 只保留 servers 顶层键。local 缺失或坏 JSON 时输出为空，调用方回退主文件（保持既有静默语义）。
+merge_mcp_effective() {
+  local main_file="$1" local_file="$2"
+  if [ -f "$local_file" ]; then
+    jq -s '.[0].servers * .[1].servers | { servers: . }' "$main_file" "$local_file" 2>/dev/null
+  fi
+}
+
+# ============================================================================
 # MCP Sync Main Function
 # ============================================================================
 
@@ -15,11 +28,13 @@ sync_mcp() {
   
   if [ ! -f "$mcp_file" ]; then
     log_info "No MCP configuration found. Skipping MCP sync."
+    sync_report_skip "no_entries"
     return 0
   fi
   
   if ! has_jq; then
     log_warn "jq not available - skipping MCP sync"
+    sync_report_skip "dependency_missing"
     return 0
   fi
   
@@ -28,21 +43,20 @@ sync_mcp() {
   # Validate JSON
   if ! jq empty "$mcp_file" 2>/dev/null; then
     log_error "Invalid JSON in mcp/mcp.json"
+    sync_report_fail "invalid_config"
     return 1
   fi
   
   # Merge local overrides if mcp.local.json exists
   local local_file="${AIWS_DIR}/mcp/mcp.local.json"
   local effective_mcp="$mcp_file"
-  if [ -f "$local_file" ]; then
-    local merged
-    merged="$(jq -s '.[0].servers * .[1].servers | { servers: . }' "$mcp_file" "$local_file" 2>/dev/null)"
-    if [ -n "$merged" ]; then
-      effective_mcp="$(mktemp)"
-      echo "$merged" > "$effective_mcp"
-      trap "rm -f '$effective_mcp'" EXIT
-      log_debug "Merged local overrides from mcp.local.json"
-    fi
+  local merged
+  merged="$(merge_mcp_effective "$mcp_file" "$local_file" || true)"
+  if [ -n "$merged" ]; then
+    effective_mcp="$(mktemp)"
+    echo "$merged" > "$effective_mcp"
+    trap "rm -f '$effective_mcp'" EXIT
+    log_debug "Merged local overrides from mcp.local.json"
   fi
   
   # Get enabled tools (filtered if --tool specified)
@@ -89,6 +103,7 @@ sync_mcp_for_tool() {
   
   if [ -z "$target_path" ]; then
     log_debug "Tool $tool does not support $scope MCP scope"
+    sync_report_skip "tool_unsupported"
     return 0
   fi
   
@@ -98,11 +113,18 @@ sync_mcp_for_tool() {
   
   if [ -z "$servers_json" ] || [ "$servers_json" = "{}" ]; then
     log_debug "No servers for $tool ($scope)"
+    sync_report_skip "no_entries"
     return 0
   fi
   
   # Replace secret references if vault is enabled (with permission check)
   servers_json="$(replace_secrets "$servers_json" "$tool")"
+  # 残留 ${secret:} 即未解决（无 vault / 缺键 / 权限不足 / 解密失败都在此收口）；
+  # replace_secrets 在命令替换子 shell 中执行，不能靠它回传计数。
+  local secret_unresolved=0
+  if printf '%s' "$servers_json" | grep -q '\${secret:'; then
+    secret_unresolved=1
+  fi
   
   # Generate tool-specific format
   local output_content
@@ -132,6 +154,13 @@ sync_mcp_for_tool() {
   # Write output
   printf '%s\n' "$output_content" > "$target_path"
   log_success "MCP synced: $tool ($scope) -> $target_path"
+
+  # 回执：存在未解决凭据引用时输出虽已写入，整体不能记 applied（design §4）。
+  if [ "$secret_unresolved" -gt 0 ]; then
+    sync_report_fail "secret_unresolved"
+  else
+    sync_report_apply
+  fi
 }
 
 # ============================================================================

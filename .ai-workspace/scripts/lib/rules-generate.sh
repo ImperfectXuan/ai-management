@@ -122,6 +122,7 @@ generate_rule_files() {
   mapping="${AIWS_DIR}/adapters/${tool}/mapping.yaml"
   if [ ! -f "$mapping" ]; then
     log_warn "No mapping.yaml for ${tool}; skipping per-rule generation"
+    sync_report_skip "mapping_missing"
     return 0
   fi
 
@@ -246,5 +247,12 @@ generate_rule_files() {
     log_success "Generated: ${tool} rules - ${count} file(s) in $(basename "$out_dir")"
   else
     log_info "No rules generated for ${tool} in scope '${target_scope:-all}'"
+  fi
+
+  # 回执：实际生成了规则文件或上下文载体才算完成；空映射/空规则不冒充已分发。
+  if [ "$count" -gt 0 ] || memory_has_context; then
+    sync_report_apply
+  else
+    sync_report_skip "no_entries"
   fi
 }

@@ -51,12 +51,22 @@ fi
 # Logging Functions
 # ============================================================================
 
+# AIWS_DESCRIBE=1 时（sync --describe-inputs）stdout 必须保持纯 JSON，
+# INFO/OK 日志改道 stderr；WARN/ERROR/DEBUG 本就走 stderr。
 log_info() {
-  printf "${BLUE}[INFO]${NC} %s\n" "$*"
+  if [ -n "${AIWS_DESCRIBE:-}" ]; then
+    printf "${BLUE}[INFO]${NC} %s\n" "$*" >&2
+  else
+    printf "${BLUE}[INFO]${NC} %s\n" "$*"
+  fi
 }
 
 log_success() {
-  printf "${GREEN}[OK]${NC} %s\n" "$*"
+  if [ -n "${AIWS_DESCRIBE:-}" ]; then
+    printf "${GREEN}[OK]${NC} %s\n" "$*" >&2
+  else
+    printf "${GREEN}[OK]${NC} %s\n" "$*"
+  fi
 }
 
 log_warn() {
@@ -413,3 +423,22 @@ ensure_workspace_structure() {
   ensure_dir "${AIWS_DIR}/config"
   ensure_dir "${AIWS_DIR}/scripts/lib"
 }
+
+# 单元回执函数（sync-report.sh）：generate_rule_files / sync_skills_for_tool 等
+# 除 cmd_sync 外还被 drift-check 干跑、aiws skills 等路径直接调用。
+# 先提供无操作兜底（drift 干跑等无报告上下文），再尝试加载真实实现覆盖：
+# aiws 经 SCRIPT_DIR（与 common.sh 同级的 lib）总能命中；
+# 直接 source common.sh 的调用方若随后显式导出 AIWS_LIB_DIR，也可命中回退路径。
+sync_report_active() { return 1; }
+sync_report_apply() { return 0; }
+sync_report_skip() { return 0; }
+sync_report_fail() { return 0; }
+sync_report_write() { return 0; }
+sync_report_init() { die "sync-report.sh 未加载，无法启用 --report-file"; }
+for _aiws_report_lib in "${SCRIPT_DIR:-}/lib/sync-report.sh" "${AIWS_LIB_DIR}/sync-report.sh"; do
+  if [ -f "${_aiws_report_lib}" ]; then
+    . "${_aiws_report_lib}"
+    break
+  fi
+done
+unset _aiws_report_lib

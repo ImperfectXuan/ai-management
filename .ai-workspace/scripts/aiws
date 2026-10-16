@@ -201,6 +201,8 @@ EOF
 cmd_sync() {
   local target_tool=""
   local target_scope=""
+  local describe_inputs=0
+  local report_file=""
   SYNC_ONLY=""
 
   while [ $# -gt 0 ]; do
@@ -208,6 +210,8 @@ cmd_sync() {
       --tool)  target_tool="$2"; shift 2 ;;
       --scope) target_scope="$2"; shift 2 ;;
       --only)  SYNC_ONLY="$2"; shift 2 ;;
+      --describe-inputs) describe_inputs=1; shift ;;
+      --report-file) report_file="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
@@ -221,6 +225,38 @@ cmd_sync() {
       ;;
   esac
 
+  # 只读输入枚举（功能 002）：与执行模式互斥的独立早退路径，stdout 保持纯 JSON。
+  if [ "$describe_inputs" = "1" ]; then
+    if [ -n "$report_file" ]; then
+      log_error "--describe-inputs 与 --report-file 互斥，不能同次调用"
+      exit 1
+    fi
+    if [ -z "$target_tool" ] || [ -z "$target_scope" ] || [ -z "$SYNC_ONLY" ]; then
+      log_error "--describe-inputs 需要同时指定 --tool、--scope 与 --only"
+      exit 1
+    fi
+    AIWS_DESCRIBE=1
+    export AIWS_DESCRIBE
+    . "${SCRIPT_DIR}/lib/sync-describe.sh"
+    case "$SYNC_ONLY" in
+      rules)  . "${SCRIPT_DIR}/lib/rules-generate.sh" ;;
+      mcp)    . "${SCRIPT_DIR}/lib/mcp-sync.sh" ;;
+      skills) . "${SCRIPT_DIR}/lib/platform.sh"; . "${SCRIPT_DIR}/lib/skills-link.sh" ;;
+    esac
+    describe_inputs_main "$target_tool" "$SYNC_ONLY" "$target_scope"
+    exit 0
+  fi
+
+  # 单元回执（功能 002）：报告模式固定为单一单元，必须给全身份参数。
+  # sync-report.sh 已由 common.sh 统一供给；此处仅做初始化校验。
+  if [ -n "$report_file" ]; then
+    if [ -z "$target_tool" ] || [ -z "$target_scope" ] || [ -z "$SYNC_ONLY" ]; then
+      log_error "--report-file 需要同时指定 --tool、--scope 与 --only"
+      exit 1
+    fi
+    sync_report_init "$report_file" "$target_tool" "$SYNC_ONLY" "$target_scope"
+  fi
+
   log_info "AI Workspace sync v${AIWS_VERSION}"
   echo ""
 
@@ -230,8 +266,8 @@ cmd_sync() {
     sync_rules "$target_tool" "$target_scope"
   fi
 
-  # Sync MCP
-  if [ -f "${AIWS_DIR}/mcp/mcp.json" ] && sync_should_run mcp; then
+  # Sync MCP（报告模式下即使 mcp.json 缺失也进入，由 sync_mcp 落 no_entries 回执）
+  if sync_should_run mcp && { sync_report_active || [ -f "${AIWS_DIR}/mcp/mcp.json" ]; }; then
     echo ""
     # Load vault.sh for secret replacement and permission checks
     if [ -f "${SCRIPT_DIR}/lib/vault.sh" ]; then
@@ -242,7 +278,7 @@ cmd_sync() {
   fi
 
   # Sync skills（workspace.json skills.enabled=false 时显式跳过并输出原因）
-  if [ -d "${AIWS_DIR}/skills" ] && sync_should_run skills; then
+  if sync_should_run skills && { sync_report_active || [ -d "${AIWS_DIR}/skills" ]; }; then
     if is_module_enabled "skills"; then
       echo ""
       . "${SCRIPT_DIR}/lib/platform.sh"
@@ -251,6 +287,7 @@ cmd_sync() {
     else
       echo ""
       log_info "Skills module disabled (config/workspace.json skills.enabled=false). Skipping skills sync."
+      sync_report_skip "module_disabled"
     fi
   fi
 
@@ -269,6 +306,13 @@ sync_should_run() {
 sync_rules() {
   local target_tool="$1"
   local target_scope="$2"
+
+  # design §2.1：Rules 仅 project。报告模式显式回 tool_unsupported；
+  # 无报告的历史行为保持不变（生成器本就忽略 scope，只写项目文件）。
+  if sync_report_active && [ "$target_scope" = "global" ]; then
+    sync_report_skip "tool_unsupported"
+    return 0
+  fi
 
   local tools
   if [ -n "$target_tool" ]; then
@@ -310,6 +354,7 @@ generate_tool_file() {
   esac
 
   local rules_content=""
+  local rule_count=0
 
   # Collect rules
   for rule_file in "${AIWS_DIR}"/rules/*.md; do
@@ -319,6 +364,7 @@ generate_tool_file() {
     rules_content="${rules_content}
 $(cat "$rule_file")
 "
+    rule_count=$((rule_count + 1))
   done
 
   # Domain rules
@@ -329,6 +375,7 @@ $(cat "$rule_file")
       rules_content="${rules_content}
 $(cat "$rule_file")
 "
+      rule_count=$((rule_count + 1))
     done
   fi
 
@@ -365,6 +412,13 @@ $(cat "$rule_file")
   } > "$output_file"
 
   log_success "Generated: $output_file ($tool)"
+
+  # 回执：有规则或有上下文注入才算实际完成；空库写头部文件不冒充已分发（design §4）。
+  if [ "$rule_count" -gt 0 ] || [ -n "$context_body" ]; then
+    sync_report_apply
+  else
+    sync_report_skip "no_entries"
+  fi
 }
 
 # ============================================================================

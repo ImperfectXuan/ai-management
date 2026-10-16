@@ -12,6 +12,10 @@ export interface SyncOptions {
   scope?: 'global' | 'project';
   tool?: string;
   only?: 'rules' | 'mcp' | 'skills';
+  /** 单元回执落盘路径（绝对路径）；与 operationId 成对出现（design §4）。 */
+  reportFile?: string;
+  /** 主进程生成的操作 ID，经 AIWS_SYNC_OPERATION_ID 传给 CLI。 */
+  operationId?: string;
 }
 
 const SYNC_TIMEOUT_MS = 300_000;
@@ -27,9 +31,21 @@ function syncArgs(opts: SyncOptions): string[] {
   if (opts.only && !['rules', 'mcp', 'skills'].includes(opts.only)) {
     throw new WorkspaceError(ErrorCodes.InvalidArgument, '同步模块必须是 rules、mcp 或 skills');
   }
+  if (opts.reportFile !== undefined || opts.operationId !== undefined) {
+    if (!opts.reportFile || !opts.operationId) {
+      throw new WorkspaceError(ErrorCodes.InvalidArgument, 'reportFile 与 operationId 必须同时提供');
+    }
+    if (!path.isAbsolute(opts.reportFile)) {
+      throw new WorkspaceError(ErrorCodes.InvalidArgument, 'reportFile 必须是绝对路径');
+    }
+    if (!opts.tool || !opts.scope || !opts.only) {
+      throw new WorkspaceError(ErrorCodes.InvalidArgument, '回执模式需要同时指定 tool、scope 与 only（单一单元）');
+    }
+  }
   const args = ['sync', '--scope', opts.scope ?? 'project'];
   if (opts.tool) args.push('--tool', opts.tool);
   if (opts.only) args.push('--only', opts.only);
+  if (opts.reportFile) args.push('--report-file', opts.reportFile);
   return args;
 }
 
@@ -45,7 +61,8 @@ export async function* syncRun(root: string, opts: SyncOptions = {}, signal?: Ab
     cwd: root,
     env: { ...process.env, AIWS_ROOT: root,
       AIWS_SOURCE_DIR: path.join(opts.libraryRoot ?? root, '.ai-workspace'),
-      AIWS_RUNTIME_DIR: path.dirname(cli) },
+      AIWS_RUNTIME_DIR: path.dirname(cli),
+      ...(opts.operationId ? { AIWS_SYNC_OPERATION_ID: opts.operationId } : {}) },
     stdio: ['ignore', 'pipe', 'pipe'],
     // 单独的进程组使取消能终止 shell 派生的 jq/cp 等子进程。
     detached: process.platform !== 'win32',

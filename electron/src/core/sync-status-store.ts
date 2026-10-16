@@ -5,6 +5,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { ErrorCodes, WorkspaceError } from './errors';
+import { assertSyntacticPath } from './sync-unit-identity';
 import {
   KEY_ID_PATTERN,
   SYNC_STATUS_SCHEMA_VERSION,
@@ -75,6 +76,22 @@ export interface StatusFilter {
 
 function invalid(message: string): WorkspaceError {
   return new WorkspaceError(ErrorCodes.SyncStatusInvalid, message);
+}
+
+/** 本机落点（design §3.1、§5）：状态文件与指纹密钥并列于 Electron userData。 */
+export function getSyncStatusPaths(userDataDir: string): { statusFile: string; keyFile: string } {
+  assertSyntacticPath(userDataDir, 'userData 目录');
+  return {
+    statusFile: path.join(userDataDir, 'sync-status.json'),
+    keyFile: path.join(userDataDir, 'sync-fingerprint.key'),
+  };
+}
+
+/** 写入身份必须是规范绝对路径；规范归一由 sync-unit-identity 在主进程边界完成。 */
+function assertUnitIdentity(key: SyncUnitKey, outputKeys: readonly string[]): void {
+  assertSyntacticPath(key.libraryRoot, '单元键 libraryRoot');
+  assertSyntacticPath(key.targetRoot, '单元键 targetRoot');
+  for (const outputKey of outputKeys) assertSyntacticPath(outputKey, 'outputKeys[]');
 }
 
 function requireRecordShape(raw: unknown, index: number): Record<string, unknown> {
@@ -253,6 +270,7 @@ export class SyncStatusStore {
    * 单次原子落盘后才返回候选，调用方拿不到候选就不得启动 CLI。
    */
   async beginWrite(input: BeginWriteInput): Promise<EquivalenceCandidateSnapshot[]> {
+    assertUnitIdentity(input.key, input.outputKeys);
     return this.exclusive(async () => {
       const status = await this.loadUnlocked();
       const executorIdentity = unitKeyString(input.key);
