@@ -51,10 +51,10 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 
 | 任务 ID | 交付 | 实施状态 | 完成证据 |
 |---|---|---|---|
-| TASK-002-01 | 状态契约、本机 Store 与恢复 | 进行中 | `shared/sync-status.ts`、`core/sync-status-store.ts` + store/status 测试；原子持久化、校验降级、running 恢复已落地，路径 realpath/别名身份与 workspace 集成未完成 |
-| TASK-002-02 | 输入描述、指纹与本机密钥 | 进行中 | `core/sync-fingerprint.ts` + 15 项指纹测试：keyId 派生/只读检查、来源与有效输出 HMAC 指纹；CLI `--describe-inputs` 与生成器依赖清单未实现 |
-| TASK-002-03 | CLI 单元回执与跳过/失败语义 | 待开始 | 无实现证据 |
-| TASK-002-04 | 统一执行服务、持久化与目标锁 | 进行中 | 等价候选“快照→先失效→原子恢复”协议已在 Store 层实现（`sync-status.test.ts` 15 例）；sync-service 编排、输出锁与 CLI 接线未开始 |
+| TASK-002-01 | 状态契约、本机 Store 与恢复 | ✅ 已完成（2026-10-16） | `shared/sync-status.ts`、`core/sync-status-store.ts`、`core/sync-unit-identity.ts` + store/status/identity 测试；原子持久化、校验降级、running 恢复（含子进程崩溃夹具）、路径 realpath/别名身份、project=$项目根 / global=$HOME 单元键、旧 lastSyncAt 不迁移已落地；Electron 194/194、typecheck+build 通过；AC-002-01、07 通过，02/06/10/12/18 仍部分通过（缺口依赖 02/03/04/06/07，见 [verification](specs/002-sync-status/verification.md) §2） |
+| TASK-002-02 | 输入描述、指纹与本机密钥 | ✅ 已完成（2026-10-16） | CLI `aiws sync --describe-inputs`（`lib/sync-describe.sh`，schema v1，复用规则/mcp/skills 同一筛选谓词，`merge_mcp_effective` 与执行同源，Skills 计划含 outputKeys/清单/可执行位）+ `core/sync-inputs.ts`（稳定读取、按解析结构计算 JSON、来源/有效输出指纹）；test-sync-describe 34/34 + sync-inputs 19/19 + Electron 213/213 + 全部 shell 套件回归通过；AC-002-03、04、05 通过，13 部分通过；keyId 派生/只读检查见 sync-fingerprint（c95bc73） |
+| TASK-002-03 | CLI 单元回执与跳过/失败语义 | ✅ 已完成（2026-10-16） | CLI `aiws sync --report-file`（`lib/sync-report.sh`：schema v1、printf 构建不依赖 jq、0600 原子写入、一调用一回执）+ 三模块真实完成/跳过点回执（applied 仅带 completedAt；原因码含 module_disabled/tool_unsupported/no_entries/mapping_missing/dependency_missing/secret_unresolved/invalid_config/partial_failure）+ `shared/sync-unit-receipt.ts` 严格校验器 + `sync.ts` 回执参数；test-sync-report 27/27 + sync-unit-receipt 10/10 + Electron 223/223 + 15 个 shell 套件回归通过；AC-002-09 通过、08/11 部分通过 |
+| TASK-002-04 | 统一执行服务、持久化与目标锁 | ✅ 已完成（2026-10-16） | `core/sync-service.ts`：身份/密钥→describe/指纹→outputKeys 排序键锁→beginWrite 门控→CLI 回执→结束指纹与 keyId 复核→原子提交含候选恢复；非零退出优先失败、记录不可写不启动 CLI、不可执行不建密钥不写状态；describe 契约扩展顶层 outputKeys。`sync-service.test.ts` 14/14（真实 CLI + 慢包装/chmod/SIGKILL 边界注入）、Electron 237/237、15 个 shell 套件回归通过；AC-002-02、10、11、13、14 通过 |
 | TASK-002-05 | 全部 Desktop 写入入口与单项 Skills 接线 | 待开始 | 无实现证据 |
 | TASK-002-06 | 状态查询、界面与刷新 | 待开始 | 无实现证据 |
 | TASK-002-07 | 集成/原生验收、文档与发布收尾 | 待开始 | 无实现证据 |
@@ -189,6 +189,10 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 
 | 日期 | 变更 |
 |---|---|
+| 2026-10-16 | TASK-002-04 落地：新增 `core/sync-service.ts` 统一执行服务——按 design §4 每单元顺序（resolveUnitKey 身份、describe 前置可执行判断、显式同步建密钥、指纹与 outputKeys 解析、outputKeys 排序键锁、锁内重算等价候选当前指纹、beginWrite 门控失败不启动 CLI、CLI 回执模式执行并转发进度、结束指纹与 keyId 复核、applied 原子提交含候选恢复、其余只记 lastAttempt）；批次首版串行、失败/取消即停、global 自动剔除 rules；describe 契约新增顶层 outputKeys（rules/mcp/skills）。新增 `sync-service.test.ts` 14 例（真实 CLI；慢包装脚本、chmod、SIGKILL、临时 HOME 边界注入），Electron 全量 237/237 连续两轮、15 个 shell 套件回归全绿；AC-002-02/10/11/13/14 判通过；未执行 Git 提交 |
+| 2026-10-16 | TASK-002-03 落地：CLI 新增 `--report-file` 单元回执（`lib/sync-report.sh`，schema v1，printf 构建使 dependency_missing 回执在无 jq 环境也可写，0600 原子写入，operationId 缺失/相对路径/与 describe 同传显式拒绝）；rules/MCP/Skills 真实完成与跳过点落 applied/skipped/failed，仅 applied 带 UTC completedAt，`${secret:}` 残留检测阻止占位符未解决时记成功；common.sh 提供回执函数无操作兜底+真实实现加载（drift-check 干跑与 `aiws skills` 直调场景）；TS 新增 `shared/sync-unit-receipt.ts` 严格校验（身份匹配、字段语义、applied↔completedAt 双向约束）与 `sync.ts` reportFile/operationId；新增 test-sync-report.sh 27 例、sync-unit-receipt.test.ts 10 例（含 syncRun 真实 CLI 端到端），Electron 223/223，15 个 shell 套件回归全绿；AC-002-09 通过、08/11 部分通过；未执行 Git 提交 |
+| 2026-10-16 | TASK-002-02 落地：CLI 新增只读 `aiws sync --describe-inputs --tool --only --scope`（schema v1；rules/mcp/skills 复用既有筛选谓词，MCP 合并抽为 `merge_mcp_effective` 与执行同源，skills 计划含 outputKeys/逐文件清单/可执行位且不含 tool 身份，describe 模式日志改道 stderr 保持 stdout 纯 JSON）；TS 新增 `core/sync-inputs.ts`（describe 消费与校验、读取前后 stat 稳定性检查、jq `*` 合并复刻、JSON 输入按解析结构入载荷、生成器依赖显式清单、来源与有效输出指纹组装）；新增 test-sync-describe.sh 34 例、sync-inputs.test.ts 19 例，Electron 全量 213/213，14 个 shell 套件回归全绿；AC-002-03/04/05 通过、13 部分通过；TASK-002-02 标记完成；未执行 Git 提交 |
+| 2026-10-16 | TASK-002-01 收尾：新增 `core/sync-unit-identity.ts`（realpath 别名归并、目标缺失不回退父目录、outputKeys 最近真实父目录+后缀解析、project/global 单元键解析）与 Store 的 `getSyncStatusPaths` 落点、`beginWrite` 规范路径门控；新增 25 项测试（身份 15 + store 10，含 AC-002-07 旧 lastSyncAt 不迁移、别名/搬家身份，AC-002-12 子进程崩溃夹具，AC-002-18 状态文件无凭据正文），Electron 全量 194/194、typecheck+build 通过；AC-002-01、07 判通过，02/06/10/12/18 缺口收窄仍部分通过；TASK-002-01 标记完成；未执行 Git 提交 |
 | 2026-10-15 | 002 实现轮（`c95bc73`）：共享输出等价判定 + 密钥派生 keyId 在状态 Store/指纹层落地，新增 40 项行为测试、全量 169/169；AC-002-02/06/10/12/14/18 部分通过，其余未执行；TASK-002-01/02/04 进行中 |
 | 2026-10-15 | 修复 intake 相对路径来源死循环：父目录回溯以 `/` 为终点而 `dirname "."` 仍返回 `.`，`--repo . --source .` 会无限挂起且无报错。新增 `intake_abspath`（转绝对路径但保留符号链接），`intake_check_path_scope` 与 `intake_safe_resolve_link` 入口先归一化；后者越界判定补 `root_real` 比对，相对允许根下根内链接不再被误判。`test-intake-scan.sh` 新增 6 个带期限守护的用例（33→39），还原缺陷版本时 6 例全部超时失败；相对与绝对路径扫描结果一致（177 条 occurrence、路径集合相同） |
 | 2026-10-15 | 功能 002 评审整改文档：用户确认 1A + 2A，补充共享输出等价恢复、密钥派生 keyId 及对应验收；任务仍待开始，功能验收未执行 |
