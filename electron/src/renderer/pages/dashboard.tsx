@@ -5,6 +5,8 @@ import { IPC } from '../../shared/ipc';
 import type { Rule } from '../../core/rules';
 import type { McpServer } from '../../core/mcp';
 import type { Skill } from '../../core/skills';
+import { useSyncStatus } from '../use-sync-status';
+import { SyncStatusPanel } from './sync-status-panel';
 
 const TOOLS = ['cursor', 'trae', 'claude', 'codex'] as const;
 type Tool = typeof TOOLS[number];
@@ -25,6 +27,7 @@ export function DashboardPage({ repoId, onIntake }: { repoId: string; onIntake?:
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [syncState, setSyncState] = useState<'idle' | 'running' | 'done' | 'failed'>('idle');
+  const syncStatus = useSyncStatus({ repoId, scope: 'project', enabled: Boolean(repoId) });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,16 +50,16 @@ export function DashboardPage({ repoId, onIntake }: { repoId: string; onIntake?:
     });
     const offD = onProgress(IPC.SyncDone, (d) => {
       const { repoId: doneId } = d as { repoId: string };
-      if (doneId === repoId) { setBusy(false); load(); }
+      if (doneId === repoId) { setBusy(false); load(); void syncStatus.refresh(); }
     });
     return () => { offP(); offD(); };
-  }, [repoId, load]);
+  }, [repoId, load, syncStatus.refresh]);
 
   const sync = async () => {
     setBusy(true); setLog([]); setSyncState('running');
     try { await invoke(IPC.SyncRun, { repoId }); setSyncState('done'); }
     catch (failure) { setSyncState('failed'); setLog((previous) => [...previous, (failure as Error).message]); }
-    finally { setBusy(false); }
+    finally { setBusy(false); void syncStatus.refresh(); }
   };
 
   const ruleCountFor = (tool: Tool): number => {
@@ -92,6 +95,14 @@ export function DashboardPage({ repoId, onIntake }: { repoId: string; onIntake?:
           {busy && <button onClick={() => invoke(IPC.SyncCancel, repoId).catch((failure: Error) => setLog((prev) => [...prev, failure.message]))}>取消同步</button>}
         </div>
       </section>
+      <SyncStatusPanel
+        status={syncStatus.status}
+        checking={syncStatus.checking}
+        error={syncStatus.error}
+        onRefresh={() => { void syncStatus.refresh(); }}
+        onRebuild={() => { void syncStatus.rebuild(); }}
+        rebuildMessage={syncStatus.rebuildMessage}
+      />
       <div className="dashboard-lower">
         <section><h2>总库资产</h2><dl className="asset-list">
           <div><dt>规则</dt><dd>{count(rules.length)} 项</dd></div>

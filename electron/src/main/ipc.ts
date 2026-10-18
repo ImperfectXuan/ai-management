@@ -14,7 +14,9 @@ import { runAiwsJson } from '../core/vault-bridge';
 import { loadConfig, getToolSkillsPath, SUPPORTED_TOOLS } from '../core/config';
 import { createSyncService } from '../core/sync-service';
 import { SyncStatusStore, getSyncStatusPaths } from '../core/sync-status-store';
-import type { SyncModule, SyncTool } from '../shared/sync-status';
+import { querySyncStatus, rebuildLocalSyncStatus } from '../core/sync-status-query';
+import type { SyncModule, SyncScope, SyncTool } from '../shared/sync-status';
+import type { SyncStatusQueryRequest } from '../shared/sync-status-view';
 import { validateRulesSetRequiredArgs } from './rules-args';
 import { registerIntakeIpc } from './intake-ipc';
 
@@ -240,6 +242,45 @@ export function registerIpc() {
   handle(IPC.SyncAll, async () => {
     await runFullSyncAll();
     return { ok: true };
+  });
+
+  // 状态查询（design §6）：主进程解析 library/project 真实路径；renderer 不得自报路径作身份。
+  handle(IPC.SyncStatusGet, async (raw: unknown) => {
+    const args = (raw ?? {}) as SyncStatusQueryRequest;
+    const scope: SyncScope = args.scope === 'global' ? 'global' : 'project';
+    if (args.tool && !['codex', 'claude', 'cursor', 'trae'].includes(args.tool)) {
+      throw new WorkspaceError('InvalidArgument', `不支持的工具：${String(args.tool)}`);
+    }
+    if (args.module && !['rules', 'skills', 'mcp'].includes(args.module)) {
+      throw new WorkspaceError('InvalidArgument', `不支持的模块：${String(args.module)}`);
+    }
+    const libraryRoot = await libraryStore.get();
+    let projectRoot: string | undefined;
+    if (args.repoId && args.repoId !== 'content-library') {
+      projectRoot = (await store.get(args.repoId)).path;
+    }
+    return querySyncStatus(
+      {
+        repoId: args.repoId,
+        scope,
+        tool: args.tool as SyncTool | undefined,
+        module: args.module as SyncModule | undefined,
+      },
+      {
+        store: syncStatusStore,
+        keyFile: statusPaths.keyFile,
+        libraryRoot,
+        projectRoot,
+        cliPath: runtimeCli,
+      },
+    );
+  });
+
+  handle(IPC.SyncStatusRebuild, async () => {
+    if (syncStates.size) throw new WorkspaceError('SyncFailed', '同步过程中不能重建本机同步记录');
+    const backup = await rebuildLocalSyncStatus(statusPaths);
+    broadcast(IPC.SyncStatusChanged, { changedBy: 'rebuild' });
+    return backup;
   });
 
   handle(IPC.DiffCompare, async (args: { repoId: string; tool: 'cursor' | 'trae'; ruleId: string }) => {

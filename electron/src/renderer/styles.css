@@ -170,6 +170,12 @@ summary::marker { color: var(--muted); }
 .result-panel > h3 { margin-top: 0; }
 .intake-history summary .badge { margin-left: 8px; }
 
+.sync-status-panel { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 8px; }
+.sync-status-panel .notice { padding: 12px; border-radius: 6px; margin: 12px 0; }
+.sync-status-panel .section-actions { margin-top: 4px; }
+.sync-status-table td:nth-child(5), .sync-status-table td:nth-child(6),
+.sync-status-table th:nth-child(5), .sync-status-table th:nth-child(6) { white-space: nowrap; }
+
 @media (max-height: 800px) {
   .sidebar { padding-top: 18px; }
   .brand { margin-bottom: 16px; }

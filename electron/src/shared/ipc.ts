@@ -20,6 +20,10 @@ export const IPC = {
   SyncAll: 'sync:all',
   /** 状态重查提示（design §6）：来源修改、入库/回退、单元执行完成；只提示重查，非权威状态。 */
   SyncStatusChanged: 'sync:status-changed',
+  /** 只读状态查询；主进程解析真实路径并重算，不创建密钥、不解密、不写入。 */
+  SyncStatusGet: 'sync:status-get',
+  /** 显式重建本机同步记录：备份后重置状态文件与指纹密钥，不触碰内容库和工具文件。 */
+  SyncStatusRebuild: 'sync:status-rebuild',
   DiffCompare: 'diff:compare',
   IntakeListBatches: 'intake:listBatches',
   IntakeGetBatch: 'intake:getBatch',
