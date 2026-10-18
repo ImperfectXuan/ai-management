@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
-import { registerIpc } from './ipc';
+import { registerIpc, recoverSyncStatusOnStartup } from './ipc';
 import { createTray } from './tray';
 
 let win: BrowserWindow | null = null;
@@ -20,15 +20,27 @@ function createWindow() {
   win.on('closed', () => { win = null; });
 }
 
-app.whenReady().then(() => {
-  registerIpc();
-  createTray();
-  createWindow();
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+// 单实例约束（design §5）：避免两个主进程同时改写同一 userData 下的同步状态
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (win) { win.show(); win.focus(); }
   });
-});
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+  app.whenReady().then(async () => {
+    // 启动先把残留 running 恢复为 interrupted，再开放查询与写入
+    await recoverSyncStatusOnStartup();
+    registerIpc();
+    createTray();
+    createWindow();
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  });
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+}

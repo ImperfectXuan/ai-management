@@ -21,6 +21,15 @@ export interface SyncOptions {
 const SYNC_TIMEOUT_MS = 300_000;
 const KILL_GRACE_MS = 1_000;
 
+/**
+ * 是否构成项目全量同步完成（可更新旧 lastSyncAt 兼容时间）：
+ * 只有未按工具/模块收窄、且为 project 的执行才算全量——
+ * 单模块/单工具/ global 同步不得推导整个项目的完成结论（design §5）。
+ */
+export function isFullSyncCompletion(opts: { tool?: string; only?: string; scope?: 'global' | 'project' }): boolean {
+  return !opts.tool && !opts.only && (opts.scope ?? 'project') === 'project';
+}
+
 function syncArgs(opts: SyncOptions): string[] {
   if (opts.tool && !SUPPORTED_TOOLS.some((tool) => tool === opts.tool)) {
     throw new WorkspaceError(ErrorCodes.UnsupportedTool, `不支持的同步工具：${opts.tool}`);

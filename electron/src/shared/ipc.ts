@@ -18,6 +18,8 @@ export const IPC = {
   SyncProgress: 'sync:progress',
   SyncDone: 'sync:done',
   SyncAll: 'sync:all',
+  /** 状态重查提示（design §6）：来源修改、入库/回退、单元执行完成；只提示重查，非权威状态。 */
+  SyncStatusChanged: 'sync:status-changed',
   DiffCompare: 'diff:compare',
   IntakeListBatches: 'intake:listBatches',
   IntakeGetBatch: 'intake:getBatch',

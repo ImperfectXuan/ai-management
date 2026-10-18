@@ -123,6 +123,25 @@ function isCancellation(error: unknown): boolean {
 export interface SyncService {
   runUnit(options: RunUnitOptions): Promise<SyncUnitResult>;
   runBatch(options: RunBatchOptions): Promise<SyncBatchResult>;
+  runSingleSkillWrite<T>(options: RunSingleSkillWriteOptions<T>): Promise<T>;
+}
+
+export interface SingleSkillWriteUnit {
+  tool: SyncTool;
+  /** 本次受影响的 skills 目标目录（如 <project>/.agents/skills）；作为输出锁与失效范围。 */
+  targetBase: string;
+}
+
+export interface RunSingleSkillWriteOptions<T> {
+  libraryRoot: string;
+  /** project 必填；global 忽略。 */
+  projectRoot?: string;
+  scope: SyncScope;
+  units: SingleSkillWriteUnit[];
+  action: 'link' | 'unlink';
+  /** 实际写入（core/skills 链接层）；在全部门控落盘之后才被调用。 */
+  write: () => Promise<T>;
+  signal?: AbortSignal;
 }
 
 export function createSyncService(config: SyncServiceConfig): SyncService {
@@ -438,6 +457,83 @@ export function createSyncService(config: SyncServiceConfig): SyncService {
     });
   }
 
+  /**
+   * 单项 Skill 链接/卸载（design §6、TASK-002-05）：
+   * 目标写入前执行与模块同步相同的 running/失效门控；完成后只记录单项结果
+   * （attempt=succeeded + reasonCode），绝不更新模块 lastSuccess、不清 needsResync。
+   * 输出锁覆盖目标目录，与共享 .agents/skills 的模块同步严格互斥。
+   */
+  async function runSingleSkillWrite<T>(options: RunSingleSkillWriteOptions<T>): Promise<T> {
+    if (options.units.length === 0) {
+      throw new WorkspaceError(ErrorCodes.InvalidArgument, '单项 Skill 写入需要至少一个目标工具');
+    }
+    if (options.signal?.aborted) throw new WorkspaceError(ErrorCodes.SyncCancelled, '操作已取消');
+
+    const reasonCode = options.action === 'link' ? 'skill_link' : 'skill_unlink';
+    const identities: Array<{ key: SyncUnitKey; outputKeys: string[] }> = [];
+    for (const unit of options.units) {
+      const identity = await resolveUnitKey({
+        libraryPath: options.libraryRoot,
+        projectPath: options.projectRoot,
+        tool: unit.tool,
+        module: 'skills',
+        scope: options.scope,
+      });
+      if (!identity.ok) {
+        throw new WorkspaceError(ErrorCodes.InvalidArgument, `目标不可读取（${identity.reason}）：${unit.tool}/${options.scope}`);
+      }
+      identities.push({
+        key: identity.key,
+        outputKeys: await resolveOutputKeys([unit.targetBase]),
+      });
+    }
+
+    const { keyId } = await ensureKey();
+    const allOutputs = [...new Set(identities.flatMap((entry) => entry.outputKeys))].sort();
+
+    return locks.withLocks(allOutputs, async () => {
+      const operationId = randomUUID();
+      const startedAt = new Date().toISOString();
+      // 先落全部单元的 running/失效，再执行写入（记录不可写时不碰目标）
+      for (const entry of identities) {
+        await config.store.beginWrite({
+          key: entry.key,
+          outputKeys: entry.outputKeys,
+          operationId,
+          keyId,
+          startedAt,
+          effectiveOutputFingerprint: null,
+        });
+      }
+
+      const settle = async (state: 'succeeded' | 'failed', endedReason: string): Promise<boolean> => {
+        for (const entry of identities) {
+          const input = {
+            key: entry.key, operationId, keyId, startedAt,
+            endedAt: new Date().toISOString(), reasonCode: endedReason,
+          };
+          const ok = state === 'succeeded'
+            ? await (async () => { try { await config.store.finishSingleWrite(input); return true; } catch { return false; } })()
+            : await safeFail({ ...input, state: 'failed' });
+          if (!ok && state === 'succeeded') return false;
+        }
+        return true;
+      };
+
+      let result: T;
+      try {
+        result = await options.write();
+      } catch (error) {
+        await settle('failed', 'single_write_failed');
+        throw error;
+      }
+      if (!(await settle('succeeded', reasonCode))) {
+        throw new WorkspaceError(ErrorCodes.SyncFailed, '单项写入已执行，但状态记录失败（record_unwritable）');
+      }
+      return result;
+    });
+  }
+
   async function runBatch(options: RunBatchOptions): Promise<SyncBatchResult> {
     const modules = options.scope === 'global'
       ? options.modules.filter((module) => module !== 'rules')
@@ -473,5 +569,5 @@ export function createSyncService(config: SyncServiceConfig): SyncService {
     return { results, stopped };
   }
 
-  return { runUnit, runBatch };
+  return { runUnit, runBatch, runSingleSkillWrite };
 }

@@ -569,3 +569,146 @@ test('batch_global_自动剔除rules_只执行skills', async () => {
   }
   rmSync(sb.root, { recursive: true, force: true });
 });
+
+test('单项link与unlink_不更新模块lastSuccess_保持needsResync', async () => {
+  const sb = makeSandbox('single-op');
+  const service = makeService(sb);
+  const store = new SyncStatusStore(sb.statusFile);
+  const key = {
+    libraryRoot: realpathSync(sb.root), targetRoot: realpathSync(sb.project),
+    tool: 'codex' as SyncTool, module: 'skills' as SyncModule, scope: 'project' as SyncScope,
+  };
+
+  const applied = await service.runUnit({
+    libraryRoot: sb.root, projectRoot: sb.project, tool: 'codex', module: 'skills', scope: 'project',
+  });
+  assert.strictEqual(applied.outcome, 'applied');
+  const original = (await store.get(key))!;
+  const originalCompletedAt = original.lastSuccess!.completedAt;
+
+  const targetBase = path.join(sb.project, '.agents', 'skills');
+  await service.runSingleSkillWrite({
+    libraryRoot: sb.root, projectRoot: sb.project, scope: 'project',
+    units: [{ tool: 'codex', targetBase }],
+    action: 'link',
+    write: async () => ({ count: 1 }),
+  });
+
+  let record = (await store.get(key))!;
+  assert.strictEqual(record.lastSuccess?.completedAt, originalCompletedAt, '单项链接不更新模块成功时间');
+  assert.strictEqual(record.needsResync, true, '单项链接后模块保持待同步');
+  assert.strictEqual(record.lastAttempt?.state, 'succeeded');
+  assert.strictEqual(record.lastAttempt?.reasonCode, 'skill_link');
+
+  await service.runSingleSkillWrite({
+    libraryRoot: sb.root, projectRoot: sb.project, scope: 'project',
+    units: [{ tool: 'codex', targetBase }],
+    action: 'unlink',
+    write: async () => ({ count: 1 }),
+  });
+  record = (await store.get(key))!;
+  assert.strictEqual(record.lastSuccess?.completedAt, originalCompletedAt, '卸载同样不改写成功基线');
+  assert.strictEqual(record.needsResync, true, '卸载使模块失效');
+  assert.strictEqual(record.lastAttempt?.reasonCode, 'skill_unlink');
+  rmSync(sb.root, { recursive: true, force: true });
+});
+
+test('单项global写入_不污染project记录', async () => {
+  const sb = makeSandbox('single-global');
+  const fakeHome = path.join(sb.root, 'home');
+  mkdirSync(fakeHome);
+  const service = makeService(sb);
+  const store = new SyncStatusStore(sb.statusFile);
+  const projectKey = {
+    libraryRoot: realpathSync(sb.root), targetRoot: realpathSync(sb.project),
+    tool: 'codex' as SyncTool, module: 'skills' as SyncModule, scope: 'project' as SyncScope,
+  };
+
+  await service.runUnit({
+    libraryRoot: sb.root, projectRoot: sb.project, tool: 'codex', module: 'skills', scope: 'project',
+  });
+  const before = JSON.stringify(await store.get(projectKey));
+
+  const savedHome = process.env.HOME;
+  process.env.HOME = fakeHome;
+  try {
+    await service.runSingleSkillWrite({
+      libraryRoot: sb.root, scope: 'global',
+      units: [{ tool: 'codex', targetBase: path.join(fakeHome, '.agents', 'skills') }],
+      action: 'link',
+      write: async () => ({ count: 1 }),
+    });
+  } finally {
+    process.env.HOME = savedHome;
+  }
+
+  assert.strictEqual(JSON.stringify(await store.get(projectKey)), before, 'global 单项操作不触碰 project 记录');
+  const globals = await store.list({ scope: 'global' });
+  assert.strictEqual(globals.length, 1);
+  assert.strictEqual(globals[0].needsResync, true);
+  assert.strictEqual(globals[0].lastSuccess, undefined, 'global 单项操作不产生成功基线');
+  rmSync(sb.root, { recursive: true, force: true });
+});
+
+test('共享目录单项写入_另一工具模块记录失效_历史保留', async () => {
+  const sb = makeSandbox('single-shared');
+  const service = makeService(sb);
+  const store = new SyncStatusStore(sb.statusFile);
+  const keyOf = (tool: SyncTool) => ({
+    libraryRoot: realpathSync(sb.root), targetRoot: realpathSync(sb.project),
+    tool, module: 'skills' as SyncModule, scope: 'project' as SyncScope,
+  });
+
+  for (const tool of ['codex', 'claude'] as SyncTool[]) {
+    const result = await service.runUnit({
+      libraryRoot: sb.root, projectRoot: sb.project, tool, module: 'skills', scope: 'project',
+    });
+    assert.strictEqual(result.outcome, 'applied');
+  }
+  const codexBefore = (await store.get(keyOf('codex')))!;
+  const claudeBefore = (await store.get(keyOf('claude')))!;
+
+  // codex 的单项链接写共享 .agents/skills → claude 模块记录被失效
+  await service.runSingleSkillWrite({
+    libraryRoot: sb.root, projectRoot: sb.project, scope: 'project',
+    units: [{ tool: 'codex', targetBase: path.join(sb.project, '.agents', 'skills') }],
+    action: 'link',
+    write: async () => ({ count: 1 }),
+  });
+
+  const claudeAfter = (await store.get(keyOf('claude')))!;
+  assert.strictEqual(claudeAfter.needsResync, true, '共享目录被单项写入 → 另一工具模块失效');
+  assert.strictEqual(claudeAfter.lastSuccess?.completedAt, claudeBefore.lastSuccess?.completedAt, '历史成功记录保留');
+  const codexAfter = (await store.get(keyOf('codex')))!;
+  assert.strictEqual(codexAfter.needsResync, true);
+  assert.strictEqual(codexAfter.lastAttempt?.reasonCode, 'skill_link');
+  assert.strictEqual(
+    codexAfter.lastSuccess?.completedAt,
+    codexBefore.lastSuccess?.completedAt,
+    '单项操作保留原成功基线、不新建成功记录',
+  );
+  rmSync(sb.root, { recursive: true, force: true });
+});
+
+test('单项写入失败_记录failed并原样抛出', async () => {
+  const sb = makeSandbox('single-fail');
+  const service = makeService(sb);
+  const store = new SyncStatusStore(sb.statusFile);
+
+  await assert.rejects(
+    () => service.runSingleSkillWrite({
+      libraryRoot: sb.root, projectRoot: sb.project, scope: 'project',
+      units: [{ tool: 'codex', targetBase: path.join(sb.project, '.agents', 'skills') }],
+      action: 'link',
+      write: async () => { throw new Error('boom'); },
+    }),
+    /boom/,
+  );
+
+  const record = await store.list({ module: 'skills' }).then((all) => all[0]);
+  assert.strictEqual(record?.lastAttempt?.state, 'failed');
+  assert.strictEqual(record?.lastAttempt?.reasonCode, 'single_write_failed');
+  assert.strictEqual(record?.needsResync, true);
+  assert.strictEqual(record?.lastSuccess, undefined);
+  rmSync(sb.root, { recursive: true, force: true });
+});

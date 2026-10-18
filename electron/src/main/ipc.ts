@@ -2,15 +2,19 @@
 import { ipcMain, app, BrowserWindow, dialog } from 'electron';
 import path from 'node:path';
 import { ContentLibraryStore } from '../core/content-library';
-import { WorkspaceStore } from '../core/workspace';
+import { WorkspaceStore, type Repo } from '../core/workspace';
 import { WorkspaceError } from '../core/errors';
 import { IPC } from '../shared/ipc';
 import * as rulesApi from '../core/rules';
 import * as mcpApi from '../core/mcp';
 import * as skillsApi from '../core/skills';
-import { syncRun, type SyncOptions } from '../core/sync';
+import { isFullSyncCompletion, type SyncOptions } from '../core/sync';
 import { compareRuleToGenerated } from '../core/diff';
 import { runAiwsJson } from '../core/vault-bridge';
+import { loadConfig, getToolSkillsPath, SUPPORTED_TOOLS } from '../core/config';
+import { createSyncService } from '../core/sync-service';
+import { SyncStatusStore, getSyncStatusPaths } from '../core/sync-status-store';
+import type { SyncModule, SyncTool } from '../shared/sync-status';
 import { validateRulesSetRequiredArgs } from './rules-args';
 import { registerIntakeIpc } from './intake-ipc';
 
@@ -21,6 +25,20 @@ export const libraryStore = new ContentLibraryStore(path.join(app.getPath('userD
 export const runtimeCli = path.join(runtimeScripts, 'aiws');
 
 export const store = new WorkspaceStore(path.join(app.getPath('userData'), 'repos.json'));
+
+// 统一同步状态与执行服务（design §6）：全部写入入口共用，状态不写入 WorkspaceStore。
+const statusPaths = getSyncStatusPaths(app.getPath('userData'));
+export const syncStatusStore = new SyncStatusStore(statusPaths.statusFile);
+export const syncService = createSyncService({
+  store: syncStatusStore,
+  keyFile: statusPaths.keyFile,
+  reportDir: path.join(app.getPath('userData'), 'sync-reports'),
+});
+
+/** 启动恢复：残留 running 改为 interrupted（design §5）；在窗口创建前执行。 */
+export async function recoverSyncStatusOnStartup(): Promise<number> {
+  return syncStatusStore.recoverInterrupted(new Date().toISOString());
+}
 
 type Handler<TArgs, TResult> = (args: TArgs) => Promise<TResult>;
 
@@ -48,6 +66,96 @@ function broadcast(channel: string, payload: unknown) {
   BrowserWindow.getAllWindows().forEach((w) => w.webContents.send(channel, payload));
 }
 
+/**
+ * 单仓库同步的唯一执行路径（design §6）：SyncRun、SyncAll、托盘全部经 service.runBatch。
+ * 失败单元抛 SyncFailed（保留错误反馈）；仅全量成功才更新旧 lastSyncAt 兼容时间。
+ */
+async function executeRepoSync(
+  repo: Repo,
+  opts: { signal: AbortSignal; tool?: string; only?: string; scope?: 'global' | 'project' },
+): Promise<void> {
+  const libraryRoot = await libraryStore.get();
+  const scope = opts.scope ?? 'project';
+  const configured = opts.tool
+    ? [opts.tool]
+    : (await loadConfig(path.join(libraryRoot, '.ai-workspace'))).tools.filter((tool) =>
+        (SUPPORTED_TOOLS as readonly string[]).includes(tool));
+  const tools = configured as SyncTool[];
+  const modules: SyncModule[] = opts.only ? [opts.only as SyncModule] : ['rules', 'mcp', 'skills'];
+
+  const batch = await syncService.runBatch({
+    libraryRoot,
+    projectRoot: repo.path,
+    tools,
+    modules,
+    scope,
+    cliPath: runtimeCli,
+    signal: opts.signal,
+    onProgress: (line, unit, operationId) => broadcast(IPC.SyncProgress, { repoId: repo.id, line, unit, operationId }),
+    onUnitDone: (result) => broadcast(IPC.SyncStatusChanged, { libraryRoot, changedBy: 'sync', unit: result.unit, outcome: result.outcome }),
+  });
+
+  const failed = batch.results.find((result) => result.outcome !== 'applied' && result.outcome !== 'skipped');
+  if (failed) {
+    throw new WorkspaceError(
+      'SyncFailed',
+      `同步未完成：${failed.unit.tool}/${failed.unit.module}（${failed.reasonCode ?? failed.outcome}）`,
+    );
+  }
+  // 成功时间兼容：仅全量执行（未按工具/模块收窄且 project）才更新旧 lastSyncAt
+  if (isFullSyncCompletion(opts) && batch.results.some((result) => result.outcome === 'applied')) {
+    await store.update({ ...repo, lastSyncAt: new Date().toISOString() });
+  }
+}
+
+/** 全量同步全部仓库（SyncAll 与托盘共用）；仓库正在同步时显式报错。 */
+export async function runFullSyncAll(): Promise<{ done: number }> {
+  const repos = await store.load();
+  let done = 0;
+  for (const repo of repos) {
+    if (syncStates.has(repo.id)) throw new WorkspaceError('SyncFailed', `仓库正在同步，请稍后重试：${repo.name}`);
+    const controller = new AbortController();
+    syncStates.set(repo.id, { controller });
+    try {
+      await executeRepoSync(repo, { signal: controller.signal });
+      broadcast(IPC.SyncDone, { repoId: repo.id });
+      done += 1;
+    } finally {
+      syncStates.delete(repo.id);
+    }
+  }
+  return { done };
+}
+
+/** 单项 Skill 链接/卸载的唯一写入路径：经 service 门控，不更新模块 lastSuccess。 */
+async function runSingleSkillOp(
+  libraryRoot: string,
+  targetRoot: string,
+  args: { scope: 'global' | 'project'; tool?: string; skillName?: string },
+  action: 'link' | 'unlink',
+): Promise<{ count: number }> {
+  const cfg = await loadConfig(path.join(libraryRoot, '.ai-workspace'));
+  const wanted = args.tool ? [args.tool] : cfg.tools;
+  const units = wanted
+    .filter((tool): tool is SyncTool => (SUPPORTED_TOOLS as readonly string[]).includes(tool))
+    .map((tool) => ({ tool, targetBase: getToolSkillsPath(targetRoot, tool, args.scope) }))
+    .filter((unit): unit is { tool: SyncTool; targetBase: string } => Boolean(unit.targetBase));
+  if (units.length === 0) return { count: 0 };
+
+  const result = await syncService.runSingleSkillWrite({
+    libraryRoot,
+    projectRoot: targetRoot,
+    scope: args.scope,
+    units,
+    action,
+    write: () => (action === 'link'
+      ? skillsApi.linkSkills(libraryRoot, args.scope, args.tool, args.skillName, targetRoot)
+      : skillsApi.unlinkSkills(libraryRoot, args.scope, args.tool, args.skillName, targetRoot)),
+  });
+  broadcast(IPC.SyncStatusChanged, { libraryRoot, changedBy: action, scope: args.scope });
+  return result;
+}
+
 export function registerIpc() {
   handle(IPC.LibraryGet, () => libraryStore.load());
   handle(IPC.LibrarySelect, async (args: { path: string; initialize: boolean }) => {
@@ -68,15 +176,22 @@ export function registerIpc() {
   handle(IPC.RulesList, async () => rulesApi.listRules(await libraryStore.get()));
   handle(IPC.RulesSetRequired, async (raw: unknown) => {
     const args = validateRulesSetRequiredArgs(raw);
-    await rulesApi.setRuleRequired(await libraryStore.get(), args.tool, args.id, args.domain, args.value);
+    const libraryRoot = await libraryStore.get();
+    await rulesApi.setRuleRequired(libraryRoot, args.tool, args.id, args.domain, args.value);
+    // 来源修改只发重查提示；实际版本状态由查询按真实文件重算（design §6）
+    broadcast(IPC.SyncStatusChanged, { libraryRoot, changedBy: 'rules' });
   });
 
   handle(IPC.McpList, async () => mcpApi.listMcp(await libraryStore.get()));
   handle(IPC.McpAdd, async (args: { repoId: string; name: string; command: string; args?: string[] }) => {
-    await mcpApi.addMcp(await libraryStore.get(), args.name, args.command, args.args);
+    const libraryRoot = await libraryStore.get();
+    await mcpApi.addMcp(libraryRoot, args.name, args.command, args.args);
+    broadcast(IPC.SyncStatusChanged, { libraryRoot, changedBy: 'mcp' });
   });
   handle(IPC.McpRemove, async (args: { repoId: string; name: string }) => {
-    await mcpApi.removeMcp(await libraryStore.get(), args.name);
+    const libraryRoot = await libraryStore.get();
+    await mcpApi.removeMcp(libraryRoot, args.name);
+    broadcast(IPC.SyncStatusChanged, { libraryRoot, changedBy: 'mcp' });
   });
 
   handle(IPC.SkillsList, async (repoId: string) => {
@@ -85,11 +200,11 @@ export function registerIpc() {
   });
   handle(IPC.SkillsLink, async (args: { repoId: string; scope: 'global' | 'project'; tool?: string; skillName?: string }) => {
     const repo = await store.get(args.repoId);
-    return skillsApi.linkSkills(await libraryStore.get(), args.scope, args.tool, args.skillName, repo.path);
+    return runSingleSkillOp(await libraryStore.get(), repo.path, args, 'link');
   });
   handle(IPC.SkillsUnlink, async (args: { repoId: string; scope: 'global' | 'project'; tool?: string; skillName?: string }) => {
     const repo = await store.get(args.repoId);
-    return skillsApi.unlinkSkills(await libraryStore.get(), args.scope, args.tool, args.skillName, repo.path);
+    return runSingleSkillOp(await libraryStore.get(), repo.path, args, 'unlink');
   });
 
   handle(IPC.SecretsList, async (repoId: string) => {
@@ -101,15 +216,16 @@ export function registerIpc() {
 
   handle(IPC.SyncRun, async (args: { repoId: string } & SyncOptions) => {
     const repo = await store.get(args.repoId);
-    const libraryRoot = await libraryStore.get();
     if (syncStates.has(repo.id)) throw new WorkspaceError('SyncFailed', '该仓库正在同步，请等待完成或取消');
     const controller = new AbortController();
     syncStates.set(repo.id, { controller });
     try {
-      for await (const line of syncRun(repo.path, { tool: args.tool, scope: args.scope, only: args.only, libraryRoot, cliPath: runtimeCli }, controller.signal)) {
-        broadcast(IPC.SyncProgress, { repoId: repo.id, line });
-      }
-      await store.update({ ...repo, lastSyncAt: new Date().toISOString() });
+      await executeRepoSync(repo, {
+        signal: controller.signal,
+        tool: args.tool,
+        only: args.only,
+        scope: args.scope,
+      });
       broadcast(IPC.SyncDone, { repoId: repo.id });
       return { synced: true };
     } finally {
@@ -122,22 +238,7 @@ export function registerIpc() {
   });
 
   handle(IPC.SyncAll, async () => {
-    const libraryRoot = await libraryStore.get();
-    const repos = await store.load();
-    for (const repo of repos) {
-      if (syncStates.has(repo.id)) throw new WorkspaceError('SyncFailed', '仓库正在同步，请稍后重试');
-      const controller = new AbortController();
-      syncStates.set(repo.id, { controller });
-      try {
-        for await (const line of syncRun(repo.path, { libraryRoot, cliPath: runtimeCli }, controller.signal)) {
-          broadcast(IPC.SyncProgress, { repoId: repo.id, line });
-        }
-        await store.update({ ...repo, lastSyncAt: new Date().toISOString() });
-        broadcast(IPC.SyncDone, { repoId: repo.id });
-      } finally {
-        syncStates.delete(repo.id);
-      }
-    }
+    await runFullSyncAll();
     return { ok: true };
   });
 

@@ -1,8 +1,7 @@
 // electron/src/main/tray.ts
 import { Tray, Menu, app, nativeImage, Notification, BrowserWindow } from 'electron';
 import path from 'node:path';
-import { store, libraryStore, runtimeCli } from './ipc';
-import { syncRun } from '../core/sync';
+import { runFullSyncAll } from './ipc';
 
 export function createTray() {
   const icon = nativeImage.createFromPath(path.join(__dirname, '..', '..', 'build', 'tray.png'))
@@ -21,14 +20,8 @@ export function createTray() {
       label: '快速同步全部',
       click: async () => {
         try {
-          const libraryRoot = await libraryStore.get();
-          const repos = await store.load();
-          let done = 0;
-          for (const repo of repos) {
-            for await (const _line of syncRun(repo.path, { libraryRoot, cliPath: runtimeCli })) { /* 静默 */ }
-            await store.update({ ...repo, lastSyncAt: new Date().toISOString() });
-            done++;
-          }
+          // 托盘与主窗口共用唯一执行路径（经 sync-service），不再各自调 CLI
+          const { done } = await runFullSyncAll();
           new Notification({ title: 'AI Workspace', body: `已同步 ${done} 个仓库` }).show();
         } catch (error) {
           console.error('[tray:sync]', error);

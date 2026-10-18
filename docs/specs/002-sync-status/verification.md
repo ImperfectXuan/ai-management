@@ -10,6 +10,7 @@
 - 2026-10-16 TASK-002-02 轮（未提交工作区）：CLI 新增 `aiws sync --describe-inputs`（`lib/sync-describe.sh`，schema v1，复用各模块同一筛选谓词，MCP 合并与执行同源 `merge_mcp_effective`，Skills 计划含 outputKeys/清单/可执行位且不含 tool 身份）；TS 新增 `core/sync-inputs.ts`（describe 消费、稳定读取与读取期间变化诊断、jq `*` 合并复刻、按解析结构计算 JSON 输入、来源/有效输出指纹组装）；新增 shell 契约 34 例 + TS 19 例。AC-002-03、04、05 判定为通过，AC-002-13 部分通过，02/18 缺口收窄仍部分通过。
 - 2026-10-16 TASK-002-03 轮（未提交工作区）：CLI 新增 `aiws sync --report-file`（`lib/sync-report.sh`，schema v1，printf 构建不依赖 jq，0600 原子写入，operationId 缺失/相对路径/describe 同传显式拒绝）；在规则/MCP/Skills 的真实完成与跳过点落 applied/skipped/failed 回执（仅 applied 带 completedAt），原因码覆盖 module_disabled/tool_unsupported/no_entries/mapping_missing/dependency_missing/secret_unresolved/invalid_config/partial_failure；`shared/sync-unit-receipt.ts` 严格校验器 + `sync.ts` 回执参数。新增 shell 27 例 + TS 10 例。AC-002-09 通过、AC-002-08 部分通过、AC-002-11 部分通过。
 - 2026-10-16 TASK-002-04 轮（未提交工作区）：新增 `core/sync-service.ts` 统一执行服务（身份/密钥 → describe/指纹 → outputKeys 排序键锁 → beginWrite 门控 → CLI 回执 → 结束指纹与 keyId 复核 → 原子提交含候选恢复；非零退出优先失败；不可执行跳过不建密钥不写状态；记录不可写不启动 CLI）；describe 契约扩展顶层 `outputKeys`（rules/mcp/skills 三模块）。新增 `sync-service.test.ts` 14 例（真实 CLI + 包装脚本/chmod 边界注入）。AC-002-02、10、11、13、14 判定为通过，AC-002-06、08、12、18 仍部分通过。
+- 2026-10-16 TASK-002-05 轮（未提交工作区）：Desktop 全部写入入口接线——SyncRun/SyncAll/托盘统一经 `executeRepoSync`/`runFullSyncAll` 进 `syncService.runBatch`（主进程不再直接调用 `syncRun`）；SkillsLink/Unlink 经 `runSingleSkillWrite` 门控（Store 新增 `finishSingleWrite`：attempt=succeeded、保留 needsResync、不写 lastSuccess）；`lastSyncAt` 仅在全量成功路径更新（`isFullSyncCompletion`）；`SyncStatusChanged` 提示通道（规则/MCP 修改、收编入库/回退、单元完成）；单实例锁 + 启动 running→interrupted 恢复。新增 `sync-wiring.test.ts` 6 例 + 服务单项写入 4 例。AC-002-17 判定为通过。
 - 基线既有的 129 项桌面测试属于内容库分离变更，不能证明本功能已实现；部分通过不等于功能验收通过。
 - 实施状态仅见 [PROGRESS](../../PROGRESS.md)。
 
@@ -35,7 +36,7 @@
 | AC-002-14 | `sync-service.test.ts` | 等价共享写入先失效后原子恢复、保留原时间；跨库/不同计划/部分重叠和失败不恢复 | store 层 8 例（跨库/不同计划/部分重叠/写失败原子性/不重叠不受影响）+ `sync-service.test.ts` 真实分发目标 3 例：claude 成功原子恢复 codex（restored=1、原 completedAt 不变）、重复同步双方仍 current、claude 失败不恢复任何候选且先前失效记录不被凭空复活；回执目录读取后清理 | 通过 |
 | AC-002-15 | `electron/test/sync-status-ui.test.tsx` + 原生走查 | 切换/刷新/激活、晚到响应、入库与回退 | 未执行 | 未执行 |
 | AC-002-16 | `sync-status.test.ts` + diff/查询前后文件树比较 | 只读查询、不解密、不联网、状态与 diff 分开 | 未执行 | 未执行 |
-| AC-002-17 | `skills.test.ts`、`sync-service.test.ts` | 单项链接/卸载、global/project 隔离 | 未执行 | 未执行 |
+| AC-002-17 | `skills.test.ts`、`sync-service.test.ts` | 单项链接/卸载、global/project 隔离 | `sync-service.test.ts` 4 例通过（单项写入门控）：link/unlink 后模块 lastSuccess 与完成时间不变、needsResync=true、attempt=succeeded 且 reasonCode=skill_link/skill_unlink；global 单项写入不触碰 project 记录且不产生成功基线；共享 .agents/skills 单项写使另一工具模块失效但历史保留；write 失败记录 failed/single_write_failed 并原样抛出。链接层本体由既有 `skills.test.ts` 13 例守护；接线无绕过由 `sync-wiring.test.ts` 源码守护 | 通过 |
 | AC-002-18 | `sync-fingerprint.test.ts`、回执集成与本机文件审计 | 合成凭据无泄露、派生 keyId；重启前合法密钥原位替换/缺失/长度错误/缺 keyId/运行中替换；同 key 来源变化对照 | 既有 12 例 + store 状态文件审计 1 例 + `sync-inputs.test.ts` 5 例通过：describe 全程不创建密钥、描述输出不含规则正文/MCP 命令/vault 密文（仅路径）、`${secret:}` 引用不解密、同 key 来源变化与换 key 可区分、技能库内软链接记录链接值与有效内容哈希；CLI 回执与日志扫描待 TASK-002-03 后执行 | 部分通过 |
 
 ### 隔离与故障注入
@@ -135,6 +136,16 @@ git diff --check
 - 覆盖 AC 与命令：`node --import tsx --test test/sync-service.test.ts`（14/14）；`npm test`（237/237，连续两轮稳定）；`npm run build` 通过；15 个 shell 套件全绿（describe 37/37 含新增 outputKeys 断言）。AC-002-02、10、11、13、14 通过；AC-002-06、08、12、18 仍部分通过；其余未变。
 - 实际结果：TASK-002-04 完成条件全项有证据（两项目单元独立、失败即停不污染无重叠单元、取消终止进程组且未启动单元不改变、运行中来源变化/换密钥阻止提交、记录写失败显示 record_failed 且重启恢复 interrupted、服务进程被杀后 running→interrupted、共享 Skills 与路径别名并发串行、等价收敛保留原时间、失败不复活先前失效记录）。
 - 跳过项与遗留边界：ipc/tray/renderer 全部写入入口接线（05）、状态查询界面（06）、原生重启/GUI/打包验收（07）未执行；批次跨单元为设计要求的首版串行，未做并行批次优化；部分通过不得计为功能验收通过。
+
+### 2026-10-16 · TASK-002-05 轮（写入入口接线）
+
+- 日期 / 执行者：2026-10-16 / MiMoCode（范围：tasks.md TASK-002-05 完成条件；不含状态查询界面与原生验收）。
+- 被测 commit / 改动范围：基于 `d07247f`/`98d8b76` 加本轮未提交工作区；修改 `main/ipc.ts`（service 单例、`executeRepoSync`/`runFullSyncAll`、`runSingleSkillOp`、SyncStatusChanged 提示）、`main/tray.ts`、`main/index.ts`（单实例 + 启动恢复）、`main/intake-ipc.ts`（apply/rollback 提示）、`shared/ipc.ts`（新通道）、`core/sync.ts`（`isFullSyncCompletion`）、`core/sync-status-store.ts`（`finishSingleWrite`）、`core/sync-service.ts`（`runSingleSkillWrite`）；新增 `test/sync-wiring.test.ts`。源码环境，未打包。
+- 环境：macOS 27.0.1 arm64；Node v24.16.0；`node --import tsx --test` 与 `npx tsc --noEmit`。
+- 隔离与合成值：服务层测试沿用 `mkdtemp` 沙盒与临时 HOME；单项写入的 `write` 回调为受控假写入（链接层本体由既有 `skills.test.ts` 守护）；源码守护测试只读文件文本。
+- 覆盖 AC 与命令：`node --import tsx --test test/sync-wiring.test.ts`（6/6）；`test/sync-service.test.ts`（18/18，含单项写入 4 例）；`npm test`（247/247）；`npm run build` 通过；15 个 shell 套件全绿。AC-002-17 通过；AC-002-14 维持通过；AC-002-15、16 未执行（界面类，属 06）。
+- 实际结果：TASK-002-05 完成条件全项有证据（无绕过 service 的同步与单项 Skill 路径、单项链接不更新模块 lastSuccess、卸载使 needsResync、global 不污染 project、旧 lastSyncAt 不再由单模块推导全量完成、备份与错误反馈保留、单实例与启动恢复接线）。
+- 跳过项与遗留边界：状态查询/界面与过期响应处理（06）、原生双实例/托盘/GUI 走查与打包验收（07）未执行；`runSingleSkillWrite` 的 `write` 回调为注入式（真实链接由既有链接层测试与人工走查覆盖）；部分通过不得计为功能验收通过。
 
 ## 4. 文档交付检查
 

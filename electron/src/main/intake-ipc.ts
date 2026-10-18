@@ -88,13 +88,16 @@ export function registerIntakeIpc(register: IpcRegistrar, broadcast: Broadcaster
     const controller = new AbortController();
     runs.set(args.repoPath, controller);
     try {
-      return await intakeApply({
+      const result = await intakeApply({
         repoPath: args.repoPath,
         planId: args.planId,
         resume: args.resume,
         signal: controller.signal,
         onProgress: (ev) => broadcast(IPC.IntakeProgress, ev),
       });
+      // 收编修改了来源库：只发重查提示，实际状态由查询按真实文件重算（design §6）
+      broadcast(IPC.SyncStatusChanged, { libraryRoot: args.repoPath, changedBy: 'intake_apply' });
+      return result;
     } finally {
       runs.delete(args.repoPath);
     }
@@ -102,7 +105,9 @@ export function registerIntakeIpc(register: IpcRegistrar, broadcast: Broadcaster
 
   handle(IPC.IntakeRollback, async (raw: unknown) => {
     const args = validateIntakeRollbackArgs(raw);
-    return intakeRollback(args.repoPath, args.applyId);
+    const result = await intakeRollback(args.repoPath, args.applyId);
+    broadcast(IPC.SyncStatusChanged, { libraryRoot: args.repoPath, changedBy: 'intake_rollback' });
+    return result;
   });
 
   handle(IPC.IntakeStatus, async (raw: unknown) => {

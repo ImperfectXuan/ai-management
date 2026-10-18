@@ -60,7 +60,8 @@ export interface FailAttemptInput {
   key: SyncUnitKey;
   operationId: string;
   keyId: string;
-  state: 'failed' | 'cancelled' | 'source_changed' | 'skipped' | 'record_failed' | 'interrupted';
+  /** succeeded 仅用于单项写入完成（单项 Skill 链接/卸载）：结束 running 但不写 lastSuccess。 */
+  state: 'failed' | 'cancelled' | 'source_changed' | 'skipped' | 'record_failed' | 'interrupted' | 'succeeded';
   startedAt: string;
   endedAt: string;
   reasonCode?: string;
@@ -418,6 +419,14 @@ export class SyncStatusStore {
       };
       await this.saveUnlocked(status);
     });
+  }
+
+  /**
+   * 单项写入完成（单项 Skill 链接/卸载，design §6）：结束 running、保持 needsResync=true、
+   * 绝不写 lastSuccess——单项操作不能冒充模块同步成功；再次执行模块同步才能恢复成功证据。
+   */
+  async finishSingleWrite(input: Omit<FailAttemptInput, 'state'>): Promise<void> {
+    return this.failAttempt({ ...input, state: 'succeeded' });
   }
 
   /** 启动恢复：残留 running 改为 interrupted 并标记 needsResync；返回恢复条数。 */
