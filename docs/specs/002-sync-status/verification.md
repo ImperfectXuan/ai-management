@@ -28,7 +28,7 @@
 | AC-002-05 | `sync-fingerprint.test.ts` | 实际生成器依赖与算法版本变化 | `sync-inputs.test.ts` 1 例通过：修改 `lib/rules-generate.sh` 仅使 cursor 规则失效，codex 规则与 skills 不受影响（依赖按工具/模块显式清单、哈希实际脚本内容而非版本号）；算法版本进入 HMAC 载荷由 `sync-fingerprint.test.ts` 结构断言守护 | 通过 |
 | AC-002-06 | `sync-status-store.test.ts` + 两次原生应用启动 | 状态持久化及关闭期间外部修改 | 写入前落盘与 running→interrupted 恢复 2 例 + 新增重启实例恢复成功记录、关闭期间来源改变后首查 pending/source_changed 1 例通过（来源重算以不同指纹代指，真实输入枚举属 TASK-002-02）；两次原生应用启动未执行 | 部分通过 |
 | AC-002-07 | `sync-status-store.test.ts`、`workspace.test.ts` | 旧字段迁移、真实路径/别名/搬家规则 | 新增 2 例通过：仅含旧 `lastSyncAt` 的 repos.json 不补造成功记录、只读查询不创建状态文件且归约为 untracked；符号链接别名解析为同一键、目录移走解析为 target_missing 且旧记录原样保留、换新路径登记为新身份查不到旧记录。`sync-unit-identity.test.ts` 15 例覆盖别名归并、普通子目录、缺失不回退、outputKeys 最近真实父目录与排序去重 | 通过 |
-| AC-002-08 | `sync-service.test.ts` + CLI 回执集成 | applied、输入稳定、持久化后才成功 | 回执层（03 轮 37 例）+ 服务编排层证据：`sync-service.test.ts` 中止于复核任一环节即不提交（来源变化→source_changed、换密钥→key_changed、回执缺失/失败→failed、记录写失败→record_failed 且磁盘保持 running），仅 applied 在回执、结束指纹与 keyId 全部稳定后原子落盘并恢复候选；同内容重复同步不误标其他单元（batch 隔离例）。"显示已同步"的界面读数待 06 | 部分通过 |
+| AC-002-08 | `sync-service.test.ts` + CLI 回执集成 | applied、输入稳定、持久化后才成功 | 回执层（03 轮 37 例）+ 服务编排层证据：`sync-service.test.ts` 中止于复核任一环节即不提交（来源变化→source_changed、换密钥→key_changed、回执缺失/失败→failed、记录写失败→record_failed 且磁盘保持 running），仅 applied 在回执、结束指纹与 keyId 全部稳定后原子落盘并恢复候选；同内容重复同步不误标其他单元（batch 隔离例）。06 后界面经 `SyncStatusGet`+`SyncStatusPanel` 在持久化成功且指纹一致时显示「已同步当前版本（未检查目标文件）」（`sync-status-query` current 例 + UI 文案断言） | 通过 |
 | AC-002-09 | `.ai-workspace/scripts/test/test-sync-report.sh` | 退出 0 的各类跳过、空输入与凭据边界 | `test-sync-report.sh` 27 例通过：模块禁用、工具不支持（rules global / trae global MCP）、缺 mapping、缺 jq（符号链接沙盒 PATH，dependency_missing 回执可写）、无内容（空规则库/无技能/无 mcp.json）、`${secret:}` 无 vault 为 failed/secret_unresolved、坏 mcp.json 为 failed/invalid_config 且退出非零；上述非 applied 场景均允许退出 0 但不得带 completedAt；skipped 语义不宣称清理。界面展示层由 06 承接 | 通过 |
 | AC-002-10 | `sync-service.test.ts` | 同版本重试失败/取消不继续 current | store 层 3 例（失败/取消保持 pending、needs_resync 优先于指纹相等、历史保留）+ 服务层 3 例通过：取消（进程组终止、attempt=cancelled、无成功基线、未启动单元不写）、等价写入失败后原时间保留且 resolveVersionState 非绿、失败单元后的批次即停。原生界面读数随 07 走查 | 通过 |
 | AC-002-11 | `sync-service.test.ts` | 批次部分成功、失败后停止；共享目标失败后的失效与非重叠保留 | `sync-service.test.ts` 3 例通过：批次首单元成功后第二单元 describe 失败即停且成功记录保留、另一项目基线字节不变；claude 失败使共享 `.agents/skills` 的 codex 保持 pending 且历史保留、不重叠记录不受影响（store 层例守护）；skipped 单元不中断批次 | 通过 |
@@ -38,7 +38,7 @@
 | AC-002-15 | `electron/test/sync-status-ui.test.tsx` + 原生走查 | 切换/刷新/激活、晚到响应、入库与回退 | `sync-status-ui.test.tsx` 4 例通过：挂载查询、SyncStatusChanged 触发重查、晚到响应丢弃不覆盖新选择、损坏状态展示重建入口并调用 SyncStatusRebuild；入库/回退重查提示由 05 的 intake-ipc 接线守护；原生窗口激活走查未执行 | 通过 |
 | AC-002-16 | `sync-status-query.test.ts` + 查询前后文件树比较 | 只读查询、不解密、不联网、状态与 diff 分开 | `sync-status-query.test.ts` 6 例通过：查询前后库/目标树字节级路径集合一致、不创建密钥与状态文件、单元视图无 sha256/路径；密钥更换/缺失有基线时 unknown 优先；损坏状态 storeProblem 且不伪装 0 项/current；global 剔除 rules；重启恢复 current；界面文案固定「已同步当前版本（未检查目标文件）」且与规则 diff 页独立 | 通过 |
 | AC-002-17 | `skills.test.ts`、`sync-service.test.ts` | 单项链接/卸载、global/project 隔离 | `sync-service.test.ts` 4 例通过（单项写入门控）：link/unlink 后模块 lastSuccess 与完成时间不变、needsResync=true、attempt=succeeded 且 reasonCode=skill_link/skill_unlink；global 单项写入不触碰 project 记录且不产生成功基线；共享 .agents/skills 单项写使另一工具模块失效但历史保留；write 失败记录 failed/single_write_failed 并原样抛出。链接层本体由既有 `skills.test.ts` 13 例守护；接线无绕过由 `sync-wiring.test.ts` 源码守护 | 通过 |
-| AC-002-18 | `sync-fingerprint.test.ts`、回执集成与本机文件审计 | 合成凭据无泄露、派生 keyId；重启前合法密钥原位替换/缺失/长度错误/缺 keyId/运行中替换；同 key 来源变化对照 | 既有 12 例 + store 状态文件审计 1 例 + `sync-inputs.test.ts` 5 例通过：describe 全程不创建密钥、描述输出不含规则正文/MCP 命令/vault 密文（仅路径）、`${secret:}` 引用不解密、同 key 来源变化与换 key 可区分、技能库内软链接记录链接值与有效内容哈希；CLI 回执与日志扫描待 TASK-002-03 后执行 | 部分通过 |
+| AC-002-18 | `sync-fingerprint.test.ts`、回执集成与本机文件审计 | 合成凭据无泄露、派生 keyId；重启前合法密钥原位替换/缺失/长度错误/缺 keyId/运行中替换；同 key 来源变化对照 | 既有 12 例 + store 状态文件审计 1 例 + `sync-inputs.test.ts` 5 例 + `sync-status-query` 密钥更换/缺失例通过：describe 全程不创建密钥、描述输出不含规则正文/MCP 命令/vault 密文（仅路径）、`${secret:}` 引用不解密、同 key 来源变化与换 key 可区分；回执字段仅 schemaVersion/operationId/tool/module/scope/outcome/reasonCode/completedAt，静态审计无凭据/配置正文；07 轮再次扫描 `lib/sync-report.sh` 无 password/token/secret 等 | 通过 |
 
 ### 隔离与故障注入
 
@@ -157,6 +157,16 @@ git diff --check
 - 覆盖 AC 与命令：`node --import tsx --test test/sync-status-query.test.ts`（6/6）；`test/sync-status-ui.test.tsx`（4/4）；`npm test`（257/257）；`npm run build` 通过；5 个 shell 套件（describe 37、report 27、rules-tools 6、skills-link 9、drift-check 8）回归全绿。AC-002-15、16 通过；AC-002-14 维持通过。
 - 实际结果：TASK-002-06 完成条件全项有证据（重启后新 Store 实例恢复 current；切页/切库/切项目由 hook 重查且过期响应丢弃；外部编辑在刷新/激活时重算；读取失败展示错误或 storeProblem；无项目不列 project 单元；「已同步当前版本（未检查目标文件）」与规则 diff 独立；UI 不展示哈希/路径/实现字段；重建入口备份后重置本机元数据）。
 - 跳过项与遗留边界：原生窗口激活/双实例/托盘交叉走查与打包验收（07）未执行；入库/回退的原生走查未做（提示通道由 05 源码守护）；部分通过不得计为功能验收通过。
+
+### 2026-10-16 · TASK-002-07 轮（集成验收与发布收尾）
+
+- 日期 / 执行者：2026-10-16 / MiMoCode（范围：tasks.md TASK-002-07 完成条件；原生 GUI/真实 dmg 安装不执行）。
+- 被测 commit / 改动范围：基于 `7a419b6` 加本轮未提交文档改动；实现代码无变更。修改 PROGRESS/TRACEABILITY/verification/ACCEPTANCE/能力盘点/个人手册/CHANGELOG。
+- 环境：macOS 27.0.1 arm64；Node v24.16.0。
+- 隔离与合成值：本轮为全量回归与静态审计，无新增夹具。
+- 覆盖 AC 与命令：`sh .ai-workspace/scripts/test/test-*.sh` 15 套全绿（ci 10、drift 8、import-rules 25、intake 系 60/47/54/163/57/39、memory 15、rules-tools 6、rules-versioning 16、skills-link 9、describe 37、report 27）；`npm test`（257/257）；`npm run build` 通过；`git diff --check` 通过。AC-002-08、18 升为通过；AC-002-06、12 维持部分通过（原生两次启动未执行）；其余通过项不变。
+- 实际结果：AC-002-01～05、07～11、13～18 均有结果与覆盖端；打包 `extraResources` 静态核对确认收录 `aiws-scripts` 下 `lib/sync-report.sh`/`sync-describe.sh`/`common.sh`/`aiws`（filter 排除 test）；回执字段审计无凭据/配置正文。
+- 跳过项与遗留边界：两次原生应用启动（AC-002-06/12）、GUI 手工走查、真实 dmg 打包与安装验收、Windows junction 真机验证未执行；不得仅凭源码构建宣称安装包验收通过；部分通过不等于功能整包验收。
 
 ## 4. 文档交付检查
 

@@ -50,7 +50,7 @@ AI Workspace 文档按规格驱动开发（SDD）组织：需求 → 设计 → 
 
 ## 4. 历史设计与评审
 
-新增功能 002 · 持久化同步版本状态：[规格](specs/002-sync-status/spec.md) → [技术设计](specs/002-sync-status/design.md) → [实施任务](specs/002-sync-status/tasks.md) → [验证计划与记录](specs/002-sync-status/verification.md)。方案 2 的方向已选定，工程细则为草案；当前仅交付 SDD 文档，实施状态查 [PROGRESS](PROGRESS.md)。
+新增功能 002 · 持久化同步版本状态：[规格](specs/002-sync-status/spec.md) → [技术设计](specs/002-sync-status/design.md) → [实施任务](specs/002-sync-status/tasks.md) → [验证计划与记录](specs/002-sync-status/verification.md)。TASK-002-01～07 已落地；AC 状态与原生验收边界见 [PROGRESS](PROGRESS.md) 与 verification。
 
 
 当前新增功能规格：[001 · 多项目存量资产收编与复用](specs/001-asset-intake/spec.md)；[任务拆分](specs/001-asset-intake/tasks.md)；[Coding Agent prompts](specs/001-asset-intake/coding-prompts.md)；[验证记录](specs/001-asset-intake/verification.md)。产品方向已确认，执行细则为草案，功能尚未实现。

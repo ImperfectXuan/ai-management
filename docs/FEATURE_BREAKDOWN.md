@@ -433,4 +433,4 @@
 
 ## 候选细化：持久化同步版本状态（002）
 
-[功能 002](specs/002-sync-status/spec.md) 基于独立内容库与应用项目，为 Desktop 提供按目标、工具、模块、scope 持久化的来源版本状态。用户已选定方案方向，工程细则为草案；现有 lastSyncAt、Skills linkStatus 和规则 manifest 不等于这项能力已经实现。设计与验收见功能包，实施进度仅查 [PROGRESS](PROGRESS.md)。
+[功能 002](specs/002-sync-status/spec.md) 基于独立内容库与应用项目，为 Desktop 提供按目标、工具、模块、scope 持久化的来源版本状态。TASK-002-01～07 已于 2026-10-16 落地（统一执行服务、CLI 回执与 describe、写入入口接线、只读状态查询与概览面板）；AC-002-01～05、07～11、13～18 通过，AC-002-06/12 因原生两次应用启动未执行仍为部分通过。版本记录不证明目标文件一致、不证明 MCP 在线；旧 lastSyncAt、Skills linkStatus 与规则 manifest 仍不是该能力的证据。实施与验收查 [PROGRESS](PROGRESS.md) 与 [verification](specs/002-sync-status/verification.md)。

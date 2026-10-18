@@ -35,7 +35,7 @@
 
 ## 2.1 功能 002 · 持久化同步版本状态
 
-扩展 REQ-SYNC / REQ-DESKTOP / NFR-SOURCE / NFR-SECURITY / NFR-FAILURE，基于 `81195b4` 的统一内容库与应用项目分离。功能规格与设计为草案（1A+2A 方向已确认）；实现状态仅在 [PROGRESS](PROGRESS.md) 维护，AC 执行结果以 [verification](specs/002-sync-status/verification.md) 为准（AC-002-01～05、07、09～11、13～17 通过；AC-002-06、08、12、18 为部分通过）。
+扩展 REQ-SYNC / REQ-DESKTOP / NFR-SOURCE / NFR-SECURITY / NFR-FAILURE，基于 `81195b4` 的统一内容库与应用项目分离。功能规格与设计为草案（1A+2A 方向已确认）；实现状态仅在 [PROGRESS](PROGRESS.md) 维护，AC 执行结果以 [verification](specs/002-sync-status/verification.md) 为准（AC-002-01～05、07～11、13～18 通过；AC-002-06、12 为部分通过（原生两次启动未执行））。
 
 | 功能需求 | 设计入口 | 任务入口 | 验收入口 |
 |---|---|---|---|

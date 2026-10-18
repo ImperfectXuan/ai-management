@@ -51,6 +51,13 @@ npm test 2>&1 | grep -E "✖|✔"    # 只看用例名与失败
 | 收编桥接 | `test/intake-bridge.test.ts` | 真实 CLI 引擎端到端：多来源扫描与只读、候选分类、计划与入库、计划过期、取消、记录与回退 |
 | 收编 IPC | `test/intake-ipc.test.ts` | 通道校验、总库/来源校验独立、进度广播、取消、scan→compare→plan→apply→status→rollback 全链路；目标经 IPC→CLI 生效与登记后 ID 稳定 |
 | 收编向导 | `test/intake-ui.test.tsx` | 候选分类与来源详情、六种动作、目标资产选择、动作/目标变化使旧计划失效、批量不绕过冲突、未处理项阻断入库、失败续跑、取消通道、记录读取失败提示、AI 未配置说明 |
+| 同步状态存储 | `test/sync-status-store.test.ts` | 原子持久化、坏 JSON/未知 schema、running→interrupted、等价候选先失效后原子恢复、finishSingleWrite 不写 lastSuccess |
+| 同步状态身份 | `test/sync-unit-identity.test.ts` | realpath 别名归并、目标缺失不回退父目录、outputKeys 最近真实父目录解析 |
+| 同步输入指纹 | `test/sync-inputs.test.ts` / `test/sync-fingerprint.test.ts` | describe 消费、稳定读取、HMAC 指纹、keyId 派生与只读检查 |
+| 同步执行服务 | `test/sync-service.test.ts` | 统一编排、输出锁、CLI 回执、失败即停、取消终止进程组、共享 Skills 等价收敛 |
+| 同步入口接线 | `test/sync-wiring.test.ts` | 主进程无绕过 service 的同步/单项写入；lastSyncAt 仅全量成功；单实例与启动恢复 |
+| 同步状态查询 | `test/sync-status-query.test.ts` | 只读不创建密钥/不写状态；无项目不列 project current；密钥更换 unknown；损坏返回 storeProblem；重建备份 |
+| 同步状态界面 | `test/sync-status-ui.test.tsx` | 挂载查询、SyncStatusChanged 重查、晚到响应丢弃、重建入口、视图无哈希/路径 |
 
 **验收标准**：当次完整测试套件无失败，并记录实际用例数与输出；历史用例数不能作为固定验收门槛。
 
@@ -194,6 +201,9 @@ cd electron && npm start
 | 11 | 差异对比 | 选工具+规则看 diff | 增绿删红；"重新同步"后显示无差异 |
 | 12 | 托盘 | 快速同步全部 | 系统通知弹出"已同步 N 个仓库" |
 | 13 | 托盘 | 退出 | 应用完全退出 |
+| 14 | 工作区概览 · 同步版本状态 | 同步成功后查看 / 点「刷新状态」 | 单元显示「已同步当前版本（未检查目标文件）」与上次成功时间；与规则 diff 页独立 |
+| 15 | 同步版本状态 | 修改内容库规则正文后刷新 | 对应单元变「待同步」及原因；来源修改会触发重查提示 |
+| 16 | 同步版本状态 | 重启应用后再进概览 | 状态从本机记录恢复；无项目时不显示 project 已同步 |
 
 ### 3.3 错误场景验收
 
