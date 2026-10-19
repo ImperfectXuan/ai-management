@@ -105,3 +105,91 @@ test('trae 也是合法 tool', () => {
   const out = validateRulesSetRequiredArgs({ ...valid, tool: 'trae' });
   assert.strictEqual(out.tool, 'trae');
 });
+
+// ---------------------------------------------------------------------------
+// desktop-rule-editor：RulesGet / RulesSave 入参校验
+// ---------------------------------------------------------------------------
+
+import { validateRulesGetArgs, validateRulesSaveArgs } from '../src/main/rules-args';
+
+const validFields = {
+  title: '核心原则',
+  description: '',
+  scope: 'all',
+  globs: ['**/*.md'],
+  tools: ['cursor'],
+};
+
+const validSave = {
+  id: '00-core',
+  domain: false,
+  expectedVersion: 'sha256:abc',
+  fields: validFields,
+  body: '# 核心原则\n',
+};
+
+test('validateRulesGetArgs 合法入参原样返回', () => {
+  assert.deepStrictEqual(validateRulesGetArgs({ id: '00-core', domain: true }), { id: '00-core', domain: true });
+});
+
+test('validateRulesGetArgs 拒绝缺失 id 与非 boolean domain', () => {
+  for (const bad of [undefined, null, '', 42]) {
+    assert.throws(
+      () => validateRulesGetArgs({ id: bad, domain: false }),
+      (e: any) => e.code === ErrorCodes.InvalidArgument && /id/.test(e.message)
+    );
+  }
+  for (const bad of [undefined, null, 'false', 0, 1]) {
+    assert.throws(
+      () => validateRulesGetArgs({ id: '00-core', domain: bad }),
+      (e: any) => e.code === ErrorCodes.InvalidArgument && /domain/.test(e.message)
+    );
+  }
+});
+
+test('validateRulesSaveArgs 合法入参原样返回并发允许空正文与空描述', () => {
+  assert.deepStrictEqual(validateRulesSaveArgs(validSave), validSave);
+  const out = validateRulesSaveArgs({ ...validSave, body: '', fields: { ...validFields, description: '' } });
+  assert.strictEqual(out.body, '');
+  assert.strictEqual(out.fields.description, '');
+});
+
+test('validateRulesSaveArgs 拒绝缺失字段与错误类型', () => {
+  for (const field of ['id', 'domain', 'expectedVersion', 'fields', 'body'] as const) {
+    const bad: Record<string, unknown> = { ...validSave };
+    delete bad[field];
+    assert.throws(
+      () => validateRulesSaveArgs(bad),
+      (e: any) => e.code === ErrorCodes.InvalidArgument,
+      `缺少 ${field} 应失败`
+    );
+  }
+  assert.throws(
+    () => validateRulesSaveArgs({ ...validSave, fields: { ...validFields, title: 42 } }),
+    (e: any) => e.code === ErrorCodes.InvalidArgument && /title/.test(e.message)
+  );
+  assert.throws(
+    () => validateRulesSaveArgs({ ...validSave, fields: { ...validFields, globs: 'x' } }),
+    (e: any) => e.code === ErrorCodes.InvalidArgument && /globs/.test(e.message)
+  );
+  assert.throws(
+    () => validateRulesSaveArgs({ ...validSave, fields: { ...validFields, tools: [42] } }),
+    (e: any) => e.code === ErrorCodes.InvalidArgument && /tools/.test(e.message)
+  );
+});
+
+test('validateRulesSaveArgs 拒绝不支持的工具', () => {
+  assert.throws(
+    () => validateRulesSaveArgs({ ...validSave, fields: { ...validFields, tools: ['nvim'] } }),
+    (e: any) => e.code === ErrorCodes.UnsupportedTool
+  );
+});
+
+test('validateRulesSaveArgs 拒绝 null 与数组', () => {
+  for (const bad of [null, undefined, [], 'x']) {
+    assert.throws(
+      () => validateRulesSaveArgs(bad),
+      (e: any) => e.code === ErrorCodes.InvalidArgument
+    );
+  }
+});

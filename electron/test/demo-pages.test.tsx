@@ -16,6 +16,10 @@ async function load() {
   return { ...library, ...pages };
 }
 
+function FakeEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return <textarea aria-label="正文" value={value} onChange={(event) => onChange(event.target.value)} />;
+}
+
 let calls: Array<{ channel: string; payload: unknown }>;
 let failChannel: string;
 beforeEach(() => {
@@ -24,7 +28,16 @@ beforeEach(() => {
     invoke: async (channel: string, payload?: unknown) => {
       calls.push({ channel, payload });
       if (channel === failChannel) return { ok: false, message: '模拟 CLI 执行失败' };
-      if (channel === 'rules:list') return { ok: true, data: [{ id: 'demo', scope: 'all', globs: '**/*', domain: false, requiredByTool: { cursor: false, trae: false }, tools: [] }] };
+      if (channel === 'rules:list') return { ok: true, data: [{ id: 'demo', title: 'Demo', scope: 'all', globs: '**/*', domain: false, requiredByTool: { cursor: false, trae: false }, tools: [] }] };
+      if (channel === 'rules:get') return {
+        ok: true,
+        data: {
+          id: 'demo', domain: false, relativePath: 'rules/demo.md', version: 'sha256:demo',
+          fields: { title: 'Demo', description: '', scope: 'all', globs: [], tools: [] },
+          body: '# Demo\n',
+        },
+      };
+      if (channel === 'rules:save') return { ok: true, data: { version: 'sha256:next' } };
       if (channel === 'secrets:list') return { ok: true, data: { secrets: [], vault_ready: false } };
       if (channel === 'secrets:audit') return { ok: true, data: { tools: [] } };
       return { ok: true, data: [] };
@@ -36,9 +49,9 @@ afterEach(() => library?.cleanup());
 
 test('rulesPage_toggleAndReload_keepsSyncButtonEnabledAndSyncsOnlyRules', async () => {
   const { render, within, fireEvent, waitFor, RulesPage } = await load();
-  const { container } = render(<RulesPage repoId="demo" />);
+  const { container } = render(<RulesPage repoId="demo" BodyEditor={FakeEditor} />);
   const q = within(container);
-  fireEvent.click(await q.findByRole('checkbox'));
+  fireEvent.click(await q.findByRole('checkbox', { name: '常驻加载 demo' }));
 
   await waitFor(() => assert.equal((q.getByText('同步 Cursor 规则') as HTMLButtonElement).disabled, false));
   fireEvent.click(q.getByText('同步 Cursor 规则'));
