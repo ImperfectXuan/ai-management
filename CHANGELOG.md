@@ -9,6 +9,8 @@
 
 ### Added
 
+- **Desktop 规则查看与编辑（desktop-rule-editor）** — 规则页升级为主从视图：选中规则后可查看全文，并以 Milkdown 富文本编辑 Markdown 正文，以表单编辑 `title` / `description` / `scope` / `globs` / `tools`（`id` 只读）。保存由主进程执行路径校验、版本冲突检测与原子写入，未知 frontmatter 键保持不变；保存后只标记待同步，不自动分发。含原始 HTML 的规则自动降级为源码编辑。TUI 未包含本次改动。
+
 - **持久化同步版本状态（功能 002，Desktop）** — 按内容库 × 应用项目 × 工具 × 模块 × scope 记录来源版本是否已成功分发。CLI 新增 `aiws sync --describe-inputs`（只读输入描述）与 `--report-file`（单元结构化回执）；Desktop 统一经 `sync-service` 写入（含目标锁、共享 Skills 等价收敛、密钥派生 keyId）；概览页「同步版本状态」只读面板支持刷新/切页重查与本机记录重建。版本记录不证明目标文件一致，也不证明 MCP 在线。AC-002-01～05、07～11、13～18 通过；原生两次启动与 dmg 安装验收未执行。
 
 - 本机隔离演示入口、两轮真实引擎演示验证与带 SHA-256 清单的源码快照，便于冻结当前未提交实现。

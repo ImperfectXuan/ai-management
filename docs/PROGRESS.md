@@ -163,7 +163,8 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 
 ### P2 · 带宽允许时
 - [x] ~~按 tools 字段过滤规则~~ ✅ 2026-09-07 完成
-- [ ] Phase 1.5 TUI 延后项：界面内编辑规则、validate --json 结构化输出、secrets 写操作、MCP 完整表单（REQ-TUI / REQ-VALIDATE / REQ-SECRETS / REQ-MCP；需补功能规格）
+- [x] ~~Desktop 规则查看与编辑~~ ✅ 2026-10-19 完成（富文本正文 + frontmatter 表单；保存后标记待同步、不自动分发；含原始 HTML 时降级源码模式）
+- [ ] Phase 1.5 TUI 延后项：TUI 界面内编辑规则、validate --json 结构化输出、secrets 写操作、MCP 完整表单（REQ-TUI / REQ-VALIDATE / REQ-SECRETS / REQ-MCP；需补功能规格）
 - 技能工具 / scope 选择已完成（§4 B1/B2）；进一步交互增强属于候选，尚未排期。
 - Desktop 四工具同步对齐已于 2026-10-15 通过共享 CLI 落地（含 context 与 Skills，默认 project scope）；记忆页仍未排期。
 - ~~CI/CD 推送时自动同步~~ ✅ 2026-08-28 完成（`aiws ci install`）

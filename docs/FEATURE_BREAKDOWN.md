@@ -40,7 +40,7 @@
 | mapping 驱动生成与装载语义 | ✅ | 来源登记决定生成范围；逐文件工具的 `required` 控制 `alwaysApply` |
 | 规则领域 `scope` 与 glob 装载 | ✅ | `globs` 优先，缺省按领域映射；CLI `--scope` 是 MCP / 技能分发位置，不能混用 |
 | 按 `tools` 字段过滤 | ✅ | 2026-09-07 三端落地（内联/块列表，缺省全工具，与 mapping AND） |
-| 规则编辑视图（多字段表单） | ❌ | TUI/Desktop 延后项 |
+| 规则编辑视图（Desktop 富文本 + 字段表单） | ✅ | 正文 WYSIWYG + `title`/`description`/`scope`/`globs`/`tools` 表单；保存后待同步、不自动分发；含原始 HTML 时降级源码模式 |
 | 规则反向导入（`aiws import rules`） | ✅ | cursor/trae 逐条转换、claude/codex 整文件导入 |
 | 规则版本化 / 变更追踪 | ✅ | sha256 manifest + 自动 CHANGELOG + `rules status/history` |
 
@@ -50,7 +50,7 @@
 - 禁止：规范层写工具特定规则；手动编辑生成文件
 
 **TODO**
-- [ ] 规则编辑视图（TUI 多字段表单 + Desktop 详情面板）
+- [ ] TUI 规则编辑视图（多字段表单）；Desktop 查看/编辑已完成
 
 ---
 
