@@ -17,7 +17,7 @@ import { SyncStatusStore, getSyncStatusPaths } from '../core/sync-status-store';
 import { querySyncStatus, rebuildLocalSyncStatus } from '../core/sync-status-query';
 import type { SyncModule, SyncScope, SyncTool } from '../shared/sync-status';
 import type { SyncStatusQueryRequest } from '../shared/sync-status-view';
-import { validateRulesSetRequiredArgs } from './rules-args';
+import { validateRulesGetArgs, validateRulesSaveArgs, validateRulesSetRequiredArgs } from './rules-args';
 import { registerIntakeIpc } from './intake-ipc';
 
 const runtimeScripts = app.isPackaged
@@ -182,6 +182,18 @@ export function registerIpc() {
     await rulesApi.setRuleRequired(libraryRoot, args.tool, args.id, args.domain, args.value);
     // 来源修改只发重查提示；实际版本状态由查询按真实文件重算（design §6）
     broadcast(IPC.SyncStatusChanged, { libraryRoot, changedBy: 'rules' });
+  });
+  handle(IPC.RulesGet, async (raw: unknown) => {
+    const args = validateRulesGetArgs(raw);
+    return rulesApi.readRuleDocument(await libraryStore.get(), args.id, args.domain);
+  });
+  handle(IPC.RulesSave, async (raw: unknown) => {
+    const args = validateRulesSaveArgs(raw);
+    const libraryRoot = await libraryStore.get();
+    const result = await rulesApi.saveRule(libraryRoot, args);
+    // 保存只写 canonical 文件；同步状态由查询重算，绝不自动分发（spec: 保存后仍待同步）
+    broadcast(IPC.SyncStatusChanged, { libraryRoot, changedBy: 'rules' });
+    return result;
   });
 
   handle(IPC.McpList, async () => mcpApi.listMcp(await libraryStore.get()));

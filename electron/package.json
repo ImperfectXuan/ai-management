@@ -30,5 +30,9 @@
     "react-dom": "^18.3.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "@milkdown/kit": "^7.22.3",
+    "@milkdown/react": "^7.22.3"
   }
 }

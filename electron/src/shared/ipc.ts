@@ -6,6 +6,8 @@ export const IPC = {
   WorkspaceAdd: 'workspace:add',
   WorkspaceRemove: 'workspace:remove',
   RulesList: 'rules:list',
+  RulesGet: 'rules:get',
+  RulesSave: 'rules:save',
   RulesSetRequired: 'rules:setRequired',
   McpList: 'mcp:list',
   McpAdd: 'mcp:add',

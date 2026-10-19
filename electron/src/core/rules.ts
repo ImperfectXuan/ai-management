@@ -3,12 +3,17 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { PER_FILE_TOOLS, type PerFileTool } from '../shared/tools';
 import { ErrorCodes, WorkspaceError } from './errors';
+import { stripQuotes } from './rule-document';
+
+export { readRuleDocument, saveRule } from './rule-document';
+export type { RuleFields, RuleDocument, SaveRuleInput } from './rule-document';
 
 export type { PerFileTool, SupportedTool } from '../shared/tools';
 export { PER_FILE_TOOLS } from '../shared/tools';
 
 export interface Rule {
   id: string;
+  title: string;
   scope: string;
   globs: string;
   requiredByTool: Record<PerFileTool, boolean>;
@@ -52,17 +57,6 @@ function getFrontmatterLines(content: string): string[] {
   }
   if (startIdx < 0 || endIdx < 0) return [];
   return lines.slice(startIdx + 1, endIdx);
-}
-
-function stripQuotes(value: string): string {
-  if (value.length >= 2) {
-    const first = value[0];
-    const last = value[value.length - 1];
-    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
-      return value.slice(1, -1);
-    }
-  }
-  return value;
 }
 
 // 解析 rules 的 tools 字段：内联 `tools: [a, b]` 或块列表 `tools:\n  - a`。
@@ -180,6 +174,7 @@ export async function listRules(root: string): Promise<Rule[]> {
       };
       out.push({
         id: f.replace(/\.md$/, ''),
+        title: stripQuotes(fm['title'] || ''),
         scope,
         globs: ruleGlobs(content, scope),
         requiredByTool,

@@ -1,11 +1,13 @@
 // electron/src/renderer/App.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { invoke, onProgress } from './api';
 import { IPC } from '../shared/ipc';
 import { WorkspacesPage } from './pages/workspaces';
 import { DashboardPage } from './pages/dashboard';
-import { RulesPage } from './pages/rules';
+import { RulesPage, type RulesGuard } from './pages/rules';
+import { UnsavedChangesDialog } from './pages/unsaved-dialog';
+import type { BodyEditorProps } from './markdown-editor';
 import { McpPage } from './pages/mcp';
 import { SkillsPage } from './pages/skills';
 import { SecretsPage } from './pages/secrets';
@@ -29,7 +31,12 @@ const TABS = [
   { key: 'settings', label: '设置' },
 ];
 
-export function App() {
+export interface AppProps {
+  /** 测试注入点：默认使用 Milkdown 富文本编辑器。 */
+  BodyEditor?: React.ComponentType<BodyEditorProps>;
+}
+
+export function App({ BodyEditor }: AppProps = {}) {
   const [library, setLibrary] = useState<ContentLibrary | null>(null);
   const [libraryLoading, setLibraryLoading] = useState(true);
   const [repos, setRepos] = useState<Repo[]>([]);
@@ -38,6 +45,10 @@ export function App() {
   const [status, setStatus] = useState('');
   const [loadError, setLoadError] = useState('');
   const [managing, setManaging] = useState(false);
+  const [rulesDirty, setRulesDirty] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<{ run: () => void } | null>(null);
+  const [guardSaving, setGuardSaving] = useState(false);
+  const rulesGuardRef = useRef<RulesGuard | null>(null);
 
   const reload = async () => {
     try {
@@ -65,13 +76,42 @@ export function App() {
   const libraryReady = Boolean(library?.path);
   const active = repos.find((r) => r.id === activeId);
 
+  // 离开规则页前先询问规则编辑器；守卫只在规则页存在未保存更改时生效。
+  const requestNavigation = (run: () => void) => {
+    if (tab === 'rules' && rulesDirty && !managing) {
+      setPendingNavigation({ run });
+      return;
+    }
+    run();
+  };
+
   const navigation = (keys: string[]) => TABS.filter((item) => keys.includes(item.key)).map((item) => (
     <button key={item.key} type="button" className={`nav-item ${tab === item.key && !managing ? 'active' : ''}`}
       aria-current={tab === item.key && !managing ? 'page' : undefined}
-      onClick={() => { setTab(item.key); setManaging(false); }}>
+      onClick={() => requestNavigation(() => { setTab(item.key); setManaging(false); })}>
       {item.label}
     </button>
   ));
+
+  const confirmNavigationSave = async () => {
+    if (!pendingNavigation) return;
+    setGuardSaving(true);
+    const saved = await rulesGuardRef.current?.save();
+    setGuardSaving(false);
+    if (!saved) return;
+    const run = pendingNavigation.run;
+    setPendingNavigation(null);
+    run();
+  };
+
+  const confirmNavigationDiscard = () => {
+    if (!pendingNavigation) return;
+    rulesGuardRef.current?.discard();
+    setRulesDirty(false);
+    const run = pendingNavigation.run;
+    setPendingNavigation(null);
+    run();
+  };
 
   return (
     <div className="shell">
@@ -93,7 +133,7 @@ export function App() {
           {navigation(['intake', 'diff'])}
           <div className="nav-bottom">{navigation(['library', 'secrets', 'settings'])}</div>
         </nav>}
-        <button className="add-repo" onClick={() => setManaging(true)}>管理应用项目</button>
+        <button className="add-repo" onClick={() => requestNavigation(() => setManaging(true))}>管理应用项目</button>
         <div className="sidebar-foot">本机工作区</div>
       </aside>
       <main className="content">
@@ -111,7 +151,15 @@ export function App() {
           </> : <div key={`${library?.path}:${active?.id ?? "no-project"}`} className="page-body">
             {!active && <p className="muted">尚未选择应用项目。可先管理内容库，添加应用项目后再同步。</p>}
             {tab === 'dashboard' && active && <DashboardPage repoId={active?.id ?? 'content-library'} onIntake={() => setTab('intake')} />}
-            {tab === 'rules' && <RulesPage repoId={active?.id ?? 'content-library'} canSync={Boolean(active)} />}
+            {tab === 'rules' && (
+              <RulesPage
+                repoId={active?.id ?? 'content-library'}
+                canSync={Boolean(active)}
+                onDirtyChange={setRulesDirty}
+                guardRef={rulesGuardRef}
+                BodyEditor={BodyEditor}
+              />
+            )}
             {tab === 'mcp' && <McpPage repoId={active?.id ?? 'content-library'} />}
             {tab === 'skills' && <SkillsPage repoId={active?.id ?? 'content-library'} canSync={Boolean(active)} />}
             {tab === 'secrets' && <SecretsPage repoId={active?.id ?? 'content-library'} />}
@@ -121,6 +169,14 @@ export function App() {
           </div>}
         </div>
       </main>
+      {pendingNavigation && (
+        <UnsavedChangesDialog
+          busy={guardSaving}
+          onSave={() => void confirmNavigationSave()}
+          onDiscard={confirmNavigationDiscard}
+          onCancel={() => setPendingNavigation(null)}
+        />
+      )}
       <footer className="statusbar"><span title={status}>{status || (active ? `应用项目：${active.name}` : '请选择内容库与应用项目')}</span><span>AI Workspace · Desktop</span></footer>
     </div>
   );
