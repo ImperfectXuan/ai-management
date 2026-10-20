@@ -53,19 +53,6 @@
 
 完整定义见 [spec.md](specs/002-sync-status/spec.md)，任务完成条件见 [tasks.md](specs/002-sync-status/tasks.md)。TASK-002-07 执行全部验收及收尾，文档链接检查不等于功能通过。
 
-## 2.2 功能 003 · 团队协作与 macOS 手动拉取
-
-扩展 REQ-DESKTOP / REQ-RULES / REQ-SKILLS / REQ-MCP / NFR-SECURITY / NFR-SOURCE。2026-10-20 建立草案：保留 macOS 本地应用，新增团队网页；Windows 本地应用不在本包。规格、设计和任务均未确认，实现未开始，验收未执行。
-
-| 功能需求 | 设计入口 | 任务入口 | 验收入口 |
-|---|---|---|---|
-| REQ-003-01、02、05 | [身份与权限](specs/003-team-collaboration/design.md#3-身份与权限) | TASK-003-01 | AC-003-01、02、03、08 |
-| REQ-003-03、04 | [变更集](specs/003-team-collaboration/design.md#4-变更集) | TASK-003-02 | AC-003-04、05、06、07 |
-| REQ-003-06、08 | [拉取与回执](specs/003-team-collaboration/design.md#5-拉取与回执) | TASK-003-03 | AC-003-09、10、13、14 |
-| REQ-003-07 | [拉取与回执](specs/003-team-collaboration/design.md#5-拉取与回执) | TASK-003-04 | AC-003-11、12、13 |
-
-完整定义见 [spec.md](specs/003-team-collaboration/spec.md)。OpenSpec 不作为本需求主文档，说明见 [设计 §7](specs/003-team-collaboration/design.md#7-与-openspec-的关系)。
-
 ## 3. 历史材料与缺口
 
 | 材料 | 归属 | 使用方式 |

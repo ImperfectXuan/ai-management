@@ -50,8 +50,6 @@ AI Workspace 文档按规格驱动开发（SDD）组织：需求 → 设计 → 
 
 ## 4. 历史设计与评审
 
-新增功能 003 · 团队协作与 macOS 手动拉取（草案，未实现）：[规格](specs/003-team-collaboration/spec.md) → [技术设计](specs/003-team-collaboration/design.md) → [实施任务](specs/003-team-collaboration/tasks.md) → [验证记录](specs/003-team-collaboration/verification.md)。
-
 新增功能 002 · 持久化同步版本状态：[规格](specs/002-sync-status/spec.md) → [技术设计](specs/002-sync-status/design.md) → [实施任务](specs/002-sync-status/tasks.md) → [验证计划与记录](specs/002-sync-status/verification.md)。TASK-002-01～07 已落地；AC 状态与原生验收边界见 [PROGRESS](PROGRESS.md) 与 verification。
 
 

@@ -161,10 +161,6 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 - [x] ~~ADR 模板和记忆系统~~ ✅ 2026-09-03 完成（记忆系统 Task 1-4，见 §5）
 - [x] ~~项目上下文摘要~~ ✅ 2026-09-03 完成（context 注入各工具，见 §5）
 
-### 草案 · 未排期
-
-- [ ] 003 团队协作网页与 macOS 手动拉取（REQ-003-01～08）。规格为草案，TASK-003-01～05 待开始，验收未执行。Windows 本地应用不在本包，仍沿用 §7 的既有缺口，不因本草案变成第一期任务。
-
 ### P2 · 带宽允许时
 - [x] ~~按 tools 字段过滤规则~~ ✅ 2026-09-07 完成
 - [x] ~~Desktop 规则查看与编辑~~ ✅ 2026-10-19 完成（富文本正文 + frontmatter 表单；保存后标记待同步、不自动分发；含原始 HTML 时降级源码模式）
@@ -194,7 +190,6 @@ setup → 维护规范源（rules/mcp/skills/secrets）
 
 | 日期 | 变更 |
 |---|---|
-| 2026-10-20 | 功能 003 草案：团队协作网页与 macOS 手动拉取。仅文档，实现未开始，验收未执行。OpenSpec change 未创建 |
 | 2026-10-16 | TASK-002-07 落地：集成验收与发布收尾——全量 15 shell 套件回归 + Electron 257/257 + build 通过；AC-002-08（持久化后才显示已同步）、AC-002-18（回执/日志无凭据）由部分通过升为通过；打包静态核对 `extraResources` 已收录 `lib/sync-report.sh`/`sync-describe.sh`/`common.sh`（未执行 dmg 打包与安装验收）；更新 ACCEPTANCE 测试覆盖与 GUI 走查项、能力盘点 002 节、个人手册 Desktop 段、CHANGELOG Unreleased、追踪矩阵与 verification 运行记录。原生两次应用启动、GUI 手工走查、真实 dmg 安装保持未执行 |
 | 2026-10-16 | TASK-002-06 落地：状态查询与界面——`core/sync-status-query.ts` 只读查询（主进程解析 library/project/global；密钥只读不创建；describe+指纹重算；disabled/unsupported 不计完成分母；无项目不列 project 单元；损坏状态返回 storeProblem 不伪装空记录；`rebuildLocalSyncStatus` 备份后重置本机元数据）；`shared/sync-status-view.ts` 视图契约；IPC `SyncStatusGet`/`SyncStatusRebuild`；`use-sync-status.ts`（请求序号+完整选择身份丢弃过期响应；进入页面/切选择/SyncStatusChanged/窗口激活/手动刷新触发重查）；dashboard 接入 `SyncStatusPanel`。新增 query 6 例 + UI 4 例；Electron 257/257、build 通过、describe 37/report 27/rules-tools 6/skills-link 9/drift-check 8 回归全绿；AC-002-15、16 判通过；未执行 Git 提交 |
 | 2026-10-16 | TASK-002-05 落地：Desktop 写入入口全部接线——SyncRun/SyncAll/托盘统一经 `executeRepoSync`/`runFullSyncAll` 进 `syncService.runBatch`，主进程删除直接 `syncRun` 调用；SkillsLink/Unlink 经 `runSingleSkillWrite`（写前 running/失效门控与输出锁，写后 `finishSingleWrite` 记单项结果，绝不写模块 lastSuccess、needsResync 保持 true）；`isFullSyncCompletion` 收敛旧 `lastSyncAt` 更新为仅全量 project 成功；新增 `SyncStatusChanged` 通道（规则/MCP 修改、收编 apply/rollback、单元完成均发重查提示）；`requestSingleInstanceLock` 单实例 + 启动时 running→interrupted 恢复。新增 `sync-wiring.test.ts` 6 例（源码守护无绕过）与服务单项写入 4 例，Electron 247/247、15 shell 套件全绿；AC-002-17 判通过；未执行 Git 提交 |
